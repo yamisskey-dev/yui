@@ -1,13 +1,13 @@
 import { bindThis } from '@/decorators.js';
-import 藍, { InstallerResult } from '@/ai.js';
+import 唯, { InstallerResult } from '@/ai.js';
 
 export default abstract class Module {
 	public abstract readonly name: string;
 
-	protected ai: 藍;
+	protected ai: 唯;
 	private doc: any;
 
-	public init(ai: 藍) {
+	public init(ai: 唯) {
 		this.ai = ai;
 
 		this.doc = this.ai.moduleData.findOne({

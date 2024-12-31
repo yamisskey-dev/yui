@@ -107,7 +107,7 @@ export default class extends Module {
 		const form = [{
 			id: 'publish',
 			type: 'switch',
-			label: '藍が対局情報を投稿するのを許可',
+			label: '唯が対局情報を投稿するのを許可',
 			value: true,
 		}, {
 			id: 'strength',

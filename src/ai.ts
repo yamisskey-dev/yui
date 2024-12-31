@@ -38,9 +38,9 @@ export type Meta = {
 };
 
 /**
- * 藍
+ * 唯
  */
-export default class 藍 {
+export default class 唯 {
 	public readonly version = pkg._v;
 	public account: User;
 	public connection: Stream;
@@ -73,8 +73,8 @@ export default class 藍 {
 	public moduleData: loki.Collection<any>;
 
 	/**
-	 * 藍インスタンスを生成します
-	 * @param account 藍として使うアカウント
+	 * 唯インスタンスを生成します
+	 * @param account 唯として使うアカウント
 	 * @param modules モジュール。先頭のモジュールほど高優先度
 	 */
 	constructor(account: User, modules: Module[]) {

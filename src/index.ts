@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import got from 'got';
 import promiseRetry from 'promise-retry';
 
-import 藍 from './ai.js';
+import 唯 from './ai.js';
 import config from './config.js';
 import _log from './utils/log.js';
 import pkg from '../package.json' assert { type: 'json' };
@@ -70,8 +70,8 @@ promiseRetry(retry => {
 
 	log('Starting AiOS...');
 
-	// 藍起動
-	new 藍(account, [
+	// 唯起動
+	new 唯(account, [
 		new CoreModule(),
 		new EmojiModule(),
 		new EmojiReactModule(),

@@ -1,5 +1,5 @@
 import { bindThis } from '@/decorators.js';
-import 藍 from '@/ai.js';
+import 唯 from '@/ai.js';
 import IModule from '@/module.js';
 import getDate from '@/utils/get-date.js';
 import type { User } from '@/misskey/user.js';
@@ -19,7 +19,7 @@ export type FriendDoc = {
 };
 
 export default class Friend {
-	private ai: 藍;
+	private ai: 唯;
 
 	public get userId() {
 		return this.doc.userId;
@@ -39,7 +39,7 @@ export default class Friend {
 
 	public doc: FriendDoc;
 
-	constructor(ai: 藍, opts: { user?: User, doc?: FriendDoc }) {
+	constructor(ai: 唯, opts: { user?: User, doc?: FriendDoc }) {
 		this.ai = ai;
 
 		if (opts.user) {
