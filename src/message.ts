@@ -1,7 +1,7 @@
 import { bindThis } from '@/decorators.js';
 import chalk from 'chalk';
 
-import 藍 from '@/ai.js';
+import 唯 from '@/ai.js';
 import Friend from '@/friend.js';
 import type { User } from '@/misskey/user.js';
 import includes from '@/utils/includes.js';
@@ -10,7 +10,7 @@ import config from '@/config.js';
 import { sleep } from '@/utils/sleep.js';
 
 export default class Message {
-	private ai: 藍;
+	private ai: 唯;
 	private note: any;
 
 	public get id(): string {
@@ -54,7 +54,7 @@ export default class Message {
 
 	public friend: Friend;
 
-	constructor(ai: 藍, note: any) {
+	constructor(ai: 唯, note: any) {
 		this.ai = ai;
 		this.note = note;
 
