@@ -12,12 +12,18 @@ type Config = {
 	serverMonitoring: boolean;
 	checkEmojisEnabled?: boolean;
 	checkEmojisAtOnce?: boolean;
+	geminiProApiKey?: string;
+	pLaMoApiKey?: string;
+	prompt?: string;
+	aichatRandomTalkEnabled?: string;
+	aichatRandomTalkProbability?: string;
+	aichatRandomTalkIntervalMinutes?: string;
 	mecab?: string;
 	mecabDic?: string;
 	memoryDir?: string;
 };
 
-import config from '../config.json' assert { type: 'json' };
+import config from '../config.json' with { type: 'json' };
 
 config.wsUrl = config.host.replace('http', 'ws');
 config.apiUrl = config.host + '/api';
