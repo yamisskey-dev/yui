@@ -34,6 +34,7 @@ import NotingModule from './modules/noting/index.js';
 // import PollModule from './modules/poll/index.js';
 import ReminderModule from './modules/reminder/index.js';
 import CheckCustomEmojisModule from './modules/check-custom-emojis/index.js';
+import EarthQuakeWarningModule from './modules/earthquake_warning/index.js';
 import AiChatModule from './modules/aichat/index.js';
 
 console.log('   __    ____  _____  ___ ');
@@ -97,6 +98,7 @@ promiseRetry(retry => {
 //		new PollModule(),
 		new ReminderModule(),
 		new CheckCustomEmojisModule(),
+		new EarthQuakeWarningModule(),
 		new AiChatModule(),
 	]);
 }).catch(e => {
