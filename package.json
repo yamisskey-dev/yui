@@ -18,6 +18,7 @@
 		"@types/twemoji-parser": "13.1.4",
 		"@types/uuid": "9.0.7",
 		"@types/ws": "8.5.10",
+		"axios": "1.7.9",
 		"canvas": "2.11.2",
 		"chalk": "5.3.0",
 		"formdata-node": "6.0.3",
@@ -37,9 +38,9 @@
 		"uuid": "9.0.1",
 		"ws": "8.16.0"
 	},
-	"devDependencies": {
-	},
 	"nodemonConfig": {
-    "ignore": ["memory.json"]
-  }
+		"ignore": [
+			"memory.json"
+		]
+	}
 }
