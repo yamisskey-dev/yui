@@ -18,6 +18,12 @@ interface EarthquakeResponse {
   latest_time: string;
 }
 
+interface CacheEntry {
+  reportId: string;
+  isFinal: boolean;
+  lastUpdate: number;
+}
+
 class EarthquakeWarningModule extends Module {
   public readonly name = 'earthquake_warning';
 
@@ -29,6 +35,7 @@ class EarthquakeWarningModule extends Module {
     MIN_INTENSITY: 3,
     CHECK_INTERVAL_MS: 1000,
     CACHE_SIZE: 100,
+    CACHE_EXPIRY_MS: 300000, // 5分
     MESSAGES: {
       INTENSITY: {
         LIGHT: [
@@ -81,7 +88,7 @@ class EarthquakeWarningModule extends Module {
   } as const;
 
   private timeOffset = 0;
-  private readonly reportCache = new Set<string>();
+  private readonly reportCache = new Map<string, CacheEntry>();
   private intervalId: NodeJS.Timer | null = null;
 
   @bindThis
@@ -141,18 +148,41 @@ class EarthquakeWarningModule extends Module {
     const intensity = this.parseIntensity(data.calcintensity);
     if (intensity < EarthquakeWarningModule.CONFIG.MIN_INTENSITY) return;
 
-    if (!this.reportCache.has(data.report_id)) {
-      this.reportCache.add(data.report_id);
+    const cached = this.reportCache.get(data.report_id);
+    const now = Date.now();
+
+    // 既に最終報を送信済みの場合はスキップ
+    if (cached?.isFinal) return;
+
+    // 前回の更新から一定時間経過していない場合はスキップ
+    if (cached && (now - cached.lastUpdate) < 10000) return;
+
+    if (!cached) {
+      this.reportCache.set(data.report_id, {
+        reportId: data.report_id,
+        isFinal: data.is_final,
+        lastUpdate: now
+      });
       await this.sendInitialWarning(data);
       return;
     }
 
     if (data.is_cancel) {
       await this.handleCancellation(data);
+      this.reportCache.delete(data.report_id);
     } else if (data.is_final) {
       await this.handleFinalReport(data);
+      this.reportCache.set(data.report_id, {
+        ...cached,
+        isFinal: true,
+        lastUpdate: now
+      });
     } else {
       await this.handleUpdate(data);
+      this.reportCache.set(data.report_id, {
+        ...cached,
+        lastUpdate: now
+      });
     }
   }
 
@@ -195,7 +225,6 @@ class EarthquakeWarningModule extends Module {
       this.getRandomMessage(EarthquakeWarningModule.CONFIG.MESSAGES.FINAL)
         .replace('{region}', data.region_name)
     );
-    await this.sendInitialWarning(data);
   }
 
   private getIntensityMessages(intensity: number): readonly string[] {
@@ -229,9 +258,19 @@ class EarthquakeWarningModule extends Module {
   }
 
   private maintainCache(): void {
+    const now = Date.now();
+    for (const [reportId, entry] of this.reportCache.entries()) {
+      if (now - entry.lastUpdate > EarthquakeWarningModule.CONFIG.CACHE_EXPIRY_MS) {
+        this.reportCache.delete(reportId);
+      }
+    }
+
     if (this.reportCache.size > EarthquakeWarningModule.CONFIG.CACHE_SIZE) {
-      const [firstValue] = this.reportCache;
-      if (firstValue) this.reportCache.delete(firstValue);
+      const oldestEntry = Array.from(this.reportCache.entries())
+        .sort(([, a], [, b]) => a.lastUpdate - b.lastUpdate)[0];
+      if (oldestEntry) {
+        this.reportCache.delete(oldestEntry[0]);
+      }
     }
   }
 
