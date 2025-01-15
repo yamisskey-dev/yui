@@ -16,6 +16,7 @@ interface EarthquakeResponse {
   longitude: string;
   origin_time: string;
   latest_time: string;
+  formattedTime?: string; // 追加：フォーマット済みの時刻
 }
 
 interface CacheEntry {
@@ -186,6 +187,18 @@ class EarthquakeWarningModule extends Module {
     }
   }
 
+  private formatTime(timeStr: string): string {
+    // 20250115021239 -> 2025年1月15日 2時12分39秒
+    const year = timeStr.slice(0, 4);
+    const month = parseInt(timeStr.slice(4, 6), 10);
+    const day = parseInt(timeStr.slice(6, 8), 10);
+    const hour = parseInt(timeStr.slice(8, 10), 10);
+    const minute = parseInt(timeStr.slice(10, 12), 10);
+    const second = parseInt(timeStr.slice(12, 14), 10);
+    
+    return `${year}年${month}月${day}日 ${hour}時${minute}分${second}秒`;
+  }
+
   private async sendInitialWarning(data: EarthquakeResponse): Promise<void> {
     const intensity = this.parseIntensity(data.calcintensity);
     const message = this.formatMessage(EarthquakeWarningModule.CONFIG.MESSAGES.TEMPLATE, {
@@ -196,7 +209,7 @@ class EarthquakeWarningModule extends Module {
       depth: data.depth,
       latitude: data.latitude,
       longitude: data.longitude,
-      time: data.origin_time,
+      time: this.formatTime(data.origin_time),
       alert_message: intensity >= 6 ? EarthquakeWarningModule.CONFIG.MESSAGES.ALERT_HIGH :
                     intensity >= 5 ? EarthquakeWarningModule.CONFIG.MESSAGES.ALERT_MODERATE :
                     ''
