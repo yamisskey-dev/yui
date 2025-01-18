@@ -61,102 +61,94 @@ export function renderChart(chart: Chart) {
 	const xAxisCount = chart.datasets[0].data.length;
 	const serieses = chart.datasets.length;
 
-	let lowerBound = Infinity;
-	let upperBound = -Infinity;
+	// データの範囲計算（0を必ず含める）
+	let lowerBound = Math.min(0, ...chart.datasets.flatMap(dataset => dataset.data));
+	let upperBound = Math.max(0, ...chart.datasets.flatMap(dataset => dataset.data));
 
-	for (let xAxis = 0; xAxis < xAxisCount; xAxis++) {
-		let v = 0;
-		for (let series = 0; series < serieses; series++) {
-			v += chart.datasets[series].data[xAxis];
-		}
-		if (v > upperBound) upperBound = v;
-		if (v < lowerBound) lowerBound = v;
-	}
-
-	// Calculate Y axis scale
+	// Y軸のスケール計算
 	const yAxisSteps = niceScale(lowerBound, upperBound, yAxisTicks);
 	const yAxisStepsMin = yAxisSteps[0];
 	const yAxisStepsMax = yAxisSteps[yAxisSteps.length - 1];
 	const yAxisRange = yAxisStepsMax - yAxisStepsMin;
 
-	// Draw Y axis
+	// 0の位置をY軸上で計算
+	const zeroY = chartAreaY + chartAreaHeight * (yAxisStepsMax / yAxisRange);
+
+	// Y軸の描画
 	ctx.lineWidth = yAxisThickness;
 	ctx.lineCap = 'round';
+
+	// 0の基準線を描画（より目立つ色で）
+	ctx.strokeStyle = colors.text;
+	ctx.beginPath();
+	ctx.moveTo(chartAreaX, zeroY);
+	ctx.lineTo(chartAreaX + chartAreaWidth, zeroY);
+	ctx.stroke();
+
+	// 他の目盛り線の描画
 	ctx.strokeStyle = colors.yAxis;
 	for (let i = 0; i < yAxisSteps.length; i++) {
-		const step = yAxisSteps[yAxisSteps.length - i - 1];
-		const y = i * (chartAreaHeight / (yAxisSteps.length - 1));
-		ctx.beginPath();
-		ctx.lineTo(chartAreaX, chartAreaY + y);
-		ctx.lineTo(chartAreaX + chartAreaWidth, chartAreaY + y);
-		ctx.stroke();
+		const step = yAxisSteps[i];
+		const y = chartAreaY + chartAreaHeight * ((yAxisStepsMax - step) / yAxisRange);
+			
+		if (step !== 0) { // 0以外の目盛り線
+			ctx.beginPath();
+			ctx.moveTo(chartAreaX, y);
+			ctx.lineTo(chartAreaX + chartAreaWidth, y);
+			ctx.stroke();
+		}
 
+			// 目盛り値の描画
 		ctx.font = '20px CustomFont';
 		ctx.fillStyle = colors.text;
-		ctx.fillText(step.toString(), chartAreaX, chartAreaY + y - 8);
+		ctx.fillText(step.toString(), chartAreaX - 40, y);
 	}
 
-	const newDatasets: any[] = [];
-
-	for (let series = 0; series < serieses; series++) {
-		newDatasets.push({
-			data: []
-		});
-	}
-
-	for (let xAxis = 0; xAxis < xAxisCount; xAxis++) {
-		for (let series = 0; series < serieses; series++) {
-			newDatasets[series].data.push(chart.datasets[series].data[xAxis] / yAxisRange);
-		}
-	}
+	// データセットの正規化
+	const normalizedDatasets = chart.datasets.map(dataset => ({
+		data: dataset.data.map(value => value / yAxisRange)
+	}));
 
 	const perXAxisWidth = chartAreaWidth / xAxisCount;
 
-	let newUpperBound = -Infinity;
+	// 正規化された最大値の計算
+	const normalizedMax = Math.max(
+		...normalizedDatasets.flatMap(dataset => dataset.data)
+	);
 
-	for (let xAxis = 0; xAxis < xAxisCount; xAxis++) {
-		let v = 0;
-		for (let series = 0; series < serieses; series++) {
-			v += newDatasets[series].data[xAxis];
-		}
-		if (v > newUpperBound) newUpperBound = v;
-	}
-
-	// Draw X axis
+	// データの描画
 	ctx.lineWidth = lineWidth;
 	ctx.lineCap = 'round';
 
 	for (let xAxis = 0; xAxis < xAxisCount; xAxis++) {
-		const xAxisPerTypeHeights: number[] = [];
+		const x = chartAreaX + (perXAxisWidth * ((xAxisCount - 1) - xAxis)) + (perXAxisWidth / 2);
+			
+		// 各シリーズの高さを計算
+		const seriesHeights = normalizedDatasets.map(dataset => {
+			const value = dataset.data[xAxis];
+			return Math.abs(value) * chartAreaHeight;
+		});
 
-		for (let series = 0; series < serieses; series++) {
-			const v = newDatasets[series].data[xAxis];
-			const vHeight = (v / newUpperBound) * (chartAreaHeight - ((yAxisStepsMax - upperBound) / yAxisStepsMax * chartAreaHeight));
-			xAxisPerTypeHeights.push(vHeight);
-		}
-
+			// シリーズごとの描画
 		for (let series = serieses - 1; series >= 0; series--) {
 			ctx.strokeStyle = colors.dataset[series % colors.dataset.length];
-
-			let total = 0;
-			for (let i = 0; i < series; i++) {
-				total += xAxisPerTypeHeights[i];
-			}
-
-			const height = xAxisPerTypeHeights[series];
-
-			const x = chartAreaX + (perXAxisWidth * ((xAxisCount - 1) - xAxis)) + (perXAxisWidth / 2);
-
-			const yTop = (chartAreaY + chartAreaHeight) - (total + height);
-			const yBottom = (chartAreaY + chartAreaHeight) - (total);
+			const originalValue = chart.datasets[series].data[xAxis];
+					
+			// 正と負の値で異なる描画処理
+			const height = seriesHeights[series];
+			const y = originalValue >= 0 ? zeroY - height : zeroY;
+			const yEnd = originalValue >= 0 ? zeroY : zeroY + height;
 
 			ctx.globalAlpha = 1 - (xAxis / xAxisCount);
 			ctx.beginPath();
-			ctx.lineTo(x, yTop);
-			ctx.lineTo(x, yBottom);
+			ctx.moveTo(x, y);
+			ctx.lineTo(x, yEnd);
 			ctx.stroke();
 		}
 	}
+
+	// 透明度をリセット
+	ctx.globalAlpha = 1;
 
 	return canvas.toBuffer();
 }
