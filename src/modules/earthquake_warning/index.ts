@@ -129,9 +129,11 @@ class EarthquakeWarningModule extends Module {
         'はい！{region}の地震についての最後のお知らせです！',
         'えっと、{region}の地震について最後の情報をお伝えします！'
       ],
-      ERROR: [
-        '申し訳ありません。地震情報の取得に問題が発生しています。しばらくお待ちください。'
-      ],
+			ERROR: [
+				'うぅ...ごめんなさい...！地震情報の取得がうまくいかないです...一生懸命がんばってるんですけど...',
+				'あうぅ...！地震情報を取りに行こうとしたんですけど、なんかうまくいきませんでした...！もう少し待ってみてくださいっ！',
+				'えっと...！地震情報を確認しようとしたんですけど...なんかうまくできなくて...！でも、諦めずに頑張ってみますっ！'
+			],
       TEMPLATE: `{warning}
 えっと、地震速報をお伝えします！
 {region}で震度{intensity}の揺れを観測しました！
@@ -150,7 +152,7 @@ class EarthquakeWarningModule extends Module {
   private readonly circuitBreaker = new CircuitBreaker();
   private lastErrorNotificationTime = 0;
   private lastMessageTime = 0;
-  private readonly ERROR_NOTIFICATION_INTERVAL = 300000; // 5分
+  private readonly ERROR_NOTIFICATION_INTERVAL = 600000; // 10分
   private readonly MESSAGE_THROTTLE_INTERVALS = {
     DEFAULT: 60000,     // 通常の更新: 1分
     INITIAL: 30000,     // 初期通知: 30秒
