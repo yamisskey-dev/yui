@@ -75,6 +75,10 @@ interface CacheEntry {
   reportId: string;
   isFinal: boolean;
   lastUpdate: number;
+  lastIntensity?: string;  // 追加: 最後に報告した震度
+  lastDepth?: string;      // 追加: 最後に報告した深さ
+  lastMagnitude?: string;  // 追加: 最後に報告したマグニチュード
+  pendingFinal?: boolean;  // 追加: 最終報告待ちフラグ
 }
 
 class EarthquakeWarningModule extends Module {
@@ -129,11 +133,11 @@ class EarthquakeWarningModule extends Module {
         'はい！{region}の地震についての最後のお知らせです！',
         'えっと、{region}の地震について最後の情報をお伝えします！'
       ],
-			ERROR: [
-				'うぅ...ごめんなさい...！地震情報の取得がうまくいかないです...一生懸命がんばってるんですけど...',
-				'あうぅ...！地震情報を取りに行こうとしたんですけど、なんかうまくいきませんでした...！もう少し待ってみてくださいっ！',
-				'えっと...！地震情報を確認しようとしたんですけど...なんかうまくできなくて...！でも、諦めずに頑張ってみますっ！'
-			],
+      ERROR: [
+        'うぅ...ごめんなさい...！地震情報の取得がうまくいかないです...一生懸命がんばってるんですけど...',
+        'あうぅ...！地震情報を取りに行こうとしたんですけど、なんかうまくいきませんでした...！もう少し待ってみてくださいっ！',
+        'えっと...！地震情報を確認しようとしたんですけど...なんかうまくできなくて...！でも、諦めずに頑張ってみますっ！'
+      ],
       TEMPLATE: `{warning}
 えっと、地震速報をお伝えします！
 {region}で震度{intensity}の揺れを観測しました！
@@ -254,45 +258,74 @@ class EarthquakeWarningModule extends Module {
     const cached = this.reportCache.get(data.report_id);
     const currentTime = Date.now();
 
+    // 最終報告済みの場合はスキップ
     if (cached?.isFinal) return;
-    if (cached && (currentTime - cached.lastUpdate) < 10000) return;
 
+    // キャッシュがない場合は新規エントリとして処理
     if (!cached) {
       this.reportCache.set(data.report_id, {
         reportId: data.report_id,
         isFinal: data.is_final,
-        lastUpdate: currentTime
+        lastUpdate: currentTime,
+        lastIntensity: data.calcintensity,
+        lastDepth: data.depth,
+        lastMagnitude: data.magunitude
       });
       await this.sendInitialWarning(data);
       return;
     }
 
+    // 更新間隔チェック（10秒以内の更新はスキップ）
+    if (currentTime - cached.lastUpdate < 10000) return;
+
+    // データの重要な変更があるかチェック
+    const hasSignificantChanges = 
+      data.calcintensity !== cached.lastIntensity ||
+      Math.abs(parseFloat(data.depth) - parseFloat(cached.lastDepth || "0")) > 10 ||
+      Math.abs(parseFloat(data.magunitude) - parseFloat(cached.lastMagnitude || "0")) > 0.1;
+
     if (data.is_cancel) {
+      // キャンセル報告の処理
       await this.handleCancellation(data);
       this.reportCache.delete(data.report_id);
     } else if (data.is_final) {
-      await this.handleFinalReport(data);
-      this.reportCache.set(data.report_id, {
-        ...cached,
-        isFinal: true,
-        lastUpdate: currentTime
-      });
-    } else {
+      // 最終報告の処理
+      if (!cached.pendingFinal) {
+        cached.pendingFinal = true;
+        this.reportCache.set(data.report_id, cached);
+        
+        // 最終報告前に最新データを送信（重要な変更がある場合のみ）
+        if (hasSignificantChanges) {
+          await this.handleUpdate(data);
+        }
+        
+        // 少し待ってから最終報告を送信
+        setTimeout(async () => {
+          await this.handleFinalReport(data);
+          this.reportCache.set(data.report_id, {
+            ...cached,
+            isFinal: true,
+            lastUpdate: Date.now()
+          });
+        }, 5000); // 5秒待機
+      }
+    } else if (hasSignificantChanges) {
+      // 重要な変更がある場合のみ更新情報を送信
       await this.handleUpdate(data);
       this.reportCache.set(data.report_id, {
         ...cached,
-        lastUpdate: currentTime
+        lastUpdate: currentTime,
+        lastIntensity: data.calcintensity,
+        lastDepth: data.depth,
+        lastMagnitude: data.magunitude
       });
     }
   }
 
   private async handleUpdate(data: EarthquakeResponse): Promise<void> {
-    await this.postMessage(
-      this.getRandomMessage(EarthquakeWarningModule.CONFIG.MESSAGES.UPDATE)
-        .replace('{region}', data.region_name),
-      'DEFAULT'
-    );
-    await this.sendInitialWarning(data);
+    const updateMessage = this.getRandomMessage(EarthquakeWarningModule.CONFIG.MESSAGES.UPDATE)
+      .replace('{region}', data.region_name);
+    await this.sendWarningWithDelay(updateMessage, data, 'DEFAULT');
   }
 
   private async handleCancellation(data: EarthquakeResponse): Promise<void> {
@@ -304,30 +337,28 @@ class EarthquakeWarningModule extends Module {
   }
 
   private async handleFinalReport(data: EarthquakeResponse): Promise<void> {
-    await this.postMessage(
-      this.getRandomMessage(EarthquakeWarningModule.CONFIG.MESSAGES.FINAL)
-        .replace('{region}', data.region_name),
-      'FINAL'
-    );
+    const finalMessage = this.getRandomMessage(EarthquakeWarningModule.CONFIG.MESSAGES.FINAL)
+      .replace('{region}', data.region_name);
+    await this.sendWarningWithDelay(finalMessage, data, 'FINAL');
   }
 
   private async sendInitialWarning(data: EarthquakeResponse): Promise<void> {
-    const intensity = this.parseIntensity(data.calcintensity);
-    const message = this.formatMessage(EarthquakeWarningModule.CONFIG.MESSAGES.TEMPLATE, {
-      warning: this.getRandomMessage(this.getIntensityMessages(intensity)),
-      region: data.region_name,
-      intensity: data.calcintensity,
-      magnitude: data.magunitude,
-      depth: data.depth,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      time: this.formatTime(data.origin_time),
-      alert_message: intensity >= 6 ? EarthquakeWarningModule.CONFIG.MESSAGES.ALERT_HIGH :
-                    intensity >= 5 ? EarthquakeWarningModule.CONFIG.MESSAGES.ALERT_MODERATE :
-                    ''
-    });
-
+    const message = this.createWarningMessage(data);
     await this.postMessage(message, 'INITIAL');
+  }
+
+    private async sendWarningWithDelay(
+    prefixMessage: string,
+    data: EarthquakeResponse,
+    type: keyof typeof this.MESSAGE_THROTTLE_INTERVALS
+  ): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 1000)); // 1秒の基本遅延
+    
+    const message = type === 'FINAL' 
+      ? prefixMessage
+      : `${prefixMessage}\n${await this.createWarningMessage(data)}`;
+      
+    await this.postMessage(message, type);
   }
 
   private async postMessage(message: string, type: keyof typeof this.MESSAGE_THROTTLE_INTERVALS = 'DEFAULT'): Promise<void> {
@@ -345,6 +376,23 @@ class EarthquakeWarningModule extends Module {
     } catch (error) {
       console.error('Failed to post message:', error);
     }
+  }
+
+  private createWarningMessage(data: EarthquakeResponse): string {
+    const intensity = this.parseIntensity(data.calcintensity);
+    return this.formatMessage(EarthquakeWarningModule.CONFIG.MESSAGES.TEMPLATE, {
+      warning: this.getRandomMessage(this.getIntensityMessages(intensity)),
+      region: data.region_name,
+      intensity: data.calcintensity,
+      magnitude: data.magunitude,
+      depth: data.depth,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      time: this.formatTime(data.origin_time),
+      alert_message: intensity >= 6 ? EarthquakeWarningModule.CONFIG.MESSAGES.ALERT_HIGH :
+                    intensity >= 5 ? EarthquakeWarningModule.CONFIG.MESSAGES.ALERT_MODERATE :
+                    ''
+    });
   }
 
   private getIntensityMessages(intensity: number): readonly string[] {
