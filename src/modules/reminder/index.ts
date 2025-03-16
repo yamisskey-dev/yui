@@ -58,7 +58,8 @@ export default class extends Module {
 		const separatorIndex = text.indexOf(' ') > -1 ? text.indexOf(' ') : text.indexOf('\n');
 		const thing = text.substr(separatorIndex + 1).trim();
 
-		if (thing === '' && msg.quoteId == null || msg.visibility === 'followers') {
+		// フォロワー限定チェックを削除し、内容が空でかつ引用もない場合のみ無効とする
+		if (thing === '' && msg.quoteId == null) {
 			msg.reply(serifs.reminder.invalid);
 			return {
 				reaction: '🆖',
