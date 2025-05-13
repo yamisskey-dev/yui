@@ -130,8 +130,8 @@ class EarthquakeWarningModule extends Module {
         'えっと、{region}の地震の情報が更新されました！'
       ],
       FINAL: [
-        'はい！{region}の地震についての最後のお知らせです！',
-        'えっと、{region}の地震について最後の情報をお伝えします！'
+        'はい！{region}の地震についての最後のお知らせをお伝えしました！',
+				'えっと、これで{region}の地震について全ての情報をお伝えしました！',
       ],
       ERROR: [
         'うぅ...ごめんなさい...！地震情報の取得がうまくいかないです...一生懸命がんばってるんですけど...',
@@ -347,7 +347,7 @@ class EarthquakeWarningModule extends Module {
     await this.postMessage(message, 'INITIAL');
   }
 
-    private async sendWarningWithDelay(
+  private async sendWarningWithDelay(
     prefixMessage: string,
     data: EarthquakeResponse,
     type: keyof typeof this.MESSAGE_THROTTLE_INTERVALS
