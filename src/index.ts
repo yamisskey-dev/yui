@@ -20,7 +20,7 @@ import EmojiReactModule from './modules/emoji-react/index.js';
 import FortuneModule from './modules/fortune/index.js';
 import GuessingGameModule from './modules/guessing-game/index.js';
 import KazutoriModule from './modules/kazutori/index.js';
-import KeywordModule from './modules/keyword/index.js';
+// import KeywordModule from './modules/keyword/index.js';
 import WelcomeModule from './modules/welcome/index.js';
 import TimerModule from './modules/timer/index.js';
 import DiceModule from './modules/dice/index.js';
@@ -28,9 +28,9 @@ import ServerModule from './modules/server/index.js';
 import FollowModule from './modules/follow/index.js';
 import ValentineModule from './modules/valentine/index.js';
 // import MazeModule from './modules/maze/index.js';
-import ChartModule from './modules/chart/index.js';
+// import ChartModule from './modules/chart/index.js';
 import SleepReportModule from './modules/sleep-report/index.js';
-import NotingModule from './modules/noting/index.js';
+// import NotingModule from './modules/noting/index.js';
 // import PollModule from './modules/poll/index.js';
 import ReminderModule from './modules/reminder/index.js';
 import CheckCustomEmojisModule from './modules/check-custom-emojis/index.js';
@@ -93,11 +93,11 @@ promiseRetry(retry => {
 		new FollowModule(),
 		new BirthdayModule(),
 		new ValentineModule(),
-		new KeywordModule(),
+		// new KeywordModule(),
 		// new MazeModule(),
-		new ChartModule(),
+		// new ChartModule(),
 		new SleepReportModule(),
-		new NotingModule(),
+		// new NotingModule(),
 		// new PollModule(),
 		// new EarthQuakeWarningModule(),
 	]);
