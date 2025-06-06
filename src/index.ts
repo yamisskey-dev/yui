@@ -75,6 +75,10 @@ promiseRetry(retry => {
 	// 唯起動
 	new 唯(account, [
 		new CoreModule(),
+		new AiChatModule(),
+		new ReminderModule(),
+		new TalkModule(),
+		new CheckCustomEmojisModule(),
 		new EmojiModule(),
 		new EmojiReactModule(),
 		new FortuneModule(),
@@ -83,7 +87,6 @@ promiseRetry(retry => {
 		new ReversiModule(),
 		new TimerModule(),
 		new DiceModule(),
-		new TalkModule(),
 		new PingModule(),
 		new WelcomeModule(),
 		new ServerModule(),
@@ -96,10 +99,7 @@ promiseRetry(retry => {
 		new SleepReportModule(),
 		new NotingModule(),
 		// new PollModule(),
-		new ReminderModule(),
-		new CheckCustomEmojisModule(),
 		// new EarthQuakeWarningModule(),
-		new AiChatModule(),
 	]);
 }).catch(e => {
 	log(chalk.red('Failed to fetch the account'));
