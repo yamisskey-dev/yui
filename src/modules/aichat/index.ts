@@ -553,6 +553,17 @@ export default class extends Module {
 		// - 会話の感情分析とそれに応じた応答調整
 		// チャットモードの場合は特別処理
 		if (msg.isChat) {
+			// aichatコマンドが含まれている場合は無視
+			if (
+				msg.includes(['aichat']) ||
+				msg.includes(['終了']) ||
+				msg.includes(['終わり']) ||
+				msg.includes(['やめる']) ||
+				msg.includes(['止めて'])
+			) {
+				return false;
+			}
+
 			// 既に会話中かチェック
 			const exist = this.aichatHist.findOne({
 				isChat: true,
@@ -687,6 +698,19 @@ export default class extends Module {
 				);
 				return true;
 			}
+		}
+
+		// チャットモードでaichatコマンドが含まれている場合は無視
+		if (
+			msg.isChat &&
+			(msg.includes(['aichat']) ||
+				msg.includes(['終了']) ||
+				msg.includes(['終わり']) ||
+				msg.includes(['やめる']) ||
+				msg.includes(['止めて']))
+		) {
+			// コマンドとして認識された場合は処理しない
+			return false;
 		}
 
 		let exist: AiChatHist | null = null;
