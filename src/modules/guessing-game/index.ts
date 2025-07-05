@@ -70,25 +70,13 @@ export default class extends Module {
 			return;
 		}
 
-		// チャットモードでコマンドが含まれている場合は無視
-		if (
-			msg.isChat &&
-			(msg.text.includes('やめ') ||
-				msg.text.includes('終了') ||
-				msg.text.includes('終わり') ||
-				msg.text.includes('止めて'))
-		) {
-			// コマンドとして認識された場合は処理しない
-			return false;
-		}
-
 		if (msg.text.includes('やめ')) {
 			msg.reply(serifs.guessingGame.cancel);
 			exist.isEnded = true;
 			exist.endedAt = Date.now();
 			this.guesses.update(exist);
 			this.unsubscribeReply(key);
-			return true;
+			return;
 		}
 
 		const guess = msg.extractedText.match(/[0-9]+/);
