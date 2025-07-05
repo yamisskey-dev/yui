@@ -546,6 +546,46 @@ export default class extends Module {
 
 	@bindThis
 	private async mentionHook(msg: Message) {
+		// チャットモードの場合は特別処理
+		if (msg.isChat) {
+			// 既に会話中かチェック
+			const exist = this.aichatHist.findOne({
+				isChat: true,
+				chatUserId: msg.userId,
+			});
+
+			if (exist != null) return false;
+
+			// フォロー関係チェック
+			const relation = await this.ai?.api('users/relation', {
+				userId: msg.userId,
+			});
+			if (relation[0]?.isFollowing !== true) {
+				this.log('The user is not following me:' + msg.userId);
+				msg.reply('あなたはaichatを実行する権限がありません。');
+				return false;
+			}
+
+			this.log('AiChat requested via direct chat');
+
+			// チャットモードでの直接会話開始
+			const current: AiChatHist = {
+				postId: msg.id,
+				createdAt: Date.now(),
+				type: TYPE_GEMINI,
+				fromMention: true,
+				isChat: msg.isChat,
+				chatUserId: msg.userId,
+			};
+
+			const result = await this.handleAiChat(current, msg);
+			if (result) {
+				return { reaction: 'like' };
+			}
+			return false;
+		}
+
+		// ノート投稿の場合は従来通り @yui aichat が必要
 		if (!msg.includes([this.name])) {
 			return false;
 		} else {
