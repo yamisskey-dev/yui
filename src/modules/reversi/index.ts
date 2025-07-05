@@ -130,7 +130,7 @@ export default class extends Module {
 		} else {
 			// リバーシが無効の場合のメッセージを送信
 			this.ai.sendMessage(inviter.id, {
-				text: serifs.reversi.disabled
+				text: serifs.reversi.decline
 			});
 		}
 	}
