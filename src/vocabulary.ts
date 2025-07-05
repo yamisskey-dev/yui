@@ -23,7 +23,7 @@ export const itemPrefixes = [
 	'Microsoft製',
 	'Apple製',
 	'人類の技術を結集して作った',
-	'2018年製', // TODO ランダム
+	() => `${Math.floor(Math.random() * 50) + 1970}年製`, // ランダム年号
 	'500kgくらいある',
 	'高級',
 	'腐った',

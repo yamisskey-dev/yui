@@ -211,7 +211,9 @@ export default class 唯 {
 					setTimer();
 				});
 			} else {
-				// TODO: room
+				// TODO: ルームチャットの処理を実装
+				// 現在は個別チャットのみ対応
+				this.log('Room chat not implemented yet');
 			}
 		});
 		//#endregion
@@ -243,6 +245,11 @@ export default class 唯 {
 	 */
 	@bindThis
 	private async onReceiveMessage(msg: Message): Promise<void> {
+		// TODO: 改善提案
+		// - メッセージの優先度付けシステム
+		// - スパム対策の強化
+		// - メッセージ処理の並列化
+		// - エラーハンドリングの改善
 		this.log(chalk.gray(`<<< An message received: ${chalk.underline(msg.id)}`));
 
 		// Ignore message if the user is a bot
@@ -304,7 +311,29 @@ export default class 唯 {
 		}
 
 		if (msg.isChat) {
-			// TODO: リアクション？
+			// チャットでもリアクションする（絵文字で表現）
+			if (reaction) {
+				// チャットでは絵文字でリアクションを表現
+				const emojiMap: { [key: string]: string } = {
+					'like': '👍',
+					'love': '❤️',
+					'laugh': '😄',
+					'hmm': '🤔',
+					'surprise': '😲',
+					'congrats': '🎉',
+					'angry': '😠',
+					'confused': '😕',
+					'rip': '😢',
+					'pudding': '🍮',
+					'star': '⭐',
+				};
+				
+				const emoji = emojiMap[reaction] || '👍';
+				// チャットではリアクションの代わりに絵文字を送信
+				this.sendMessage(msg.userId, {
+					text: emoji
+				});
+			}
 		} else {
 			// リアクションする
 			if (reaction) {
@@ -320,10 +349,17 @@ export default class 唯 {
 	private onNotification(notification: any) {
 		switch (notification.type) {
 			// リアクションされたら親愛度を少し上げる
-			// TODO: リアクション取り消しをよしなにハンドリングする
 			case 'reaction': {
 				const friend = new Friend(this, { user: notification.user });
 				friend.incLove(0.1);
+				break;
+			}
+			
+			// リアクション取り消しを処理
+			case 'unreaction': {
+				const friend = new Friend(this, { user: notification.user });
+				// 親愛度を少し下げる（リアクションの半分）
+				friend.incLove(-0.05);
 				break;
 			}
 
