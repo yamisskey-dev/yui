@@ -22,8 +22,29 @@ export default class extends Module {
 
 	@bindThis
 	private post() {
+		// TODO: 改善提案
+		// - 時間帯に応じたセリフ（朝・昼・夜）
+		// - 天気APIとの連携
+		// - ユーザーの活動状況に応じたセリフ
+		// - イベント（誕生日、記念日など）に応じた特別なセリフ
+		const now = new Date();
+		const month = now.getMonth() + 1; // 0-11 → 1-12
+		
+		// 季節判定
+		let season: 'spring' | 'summer' | 'autumn' | 'winter';
+		if (month >= 3 && month <= 5) {
+			season = 'spring';
+		} else if (month >= 6 && month <= 8) {
+			season = 'summer';
+		} else if (month >= 9 && month <= 11) {
+			season = 'autumn';
+		} else {
+			season = 'winter';
+		}
+
 		const notes = [
 			...serifs.noting.notes,
+			...serifs.noting.seasonal[season],
 			() => {
 				const item = genItem();
 				return serifs.noting.want(item);
@@ -39,8 +60,6 @@ export default class extends Module {
 		];
 
 		const note = notes[Math.floor(Math.random() * notes.length)];
-
-		// TODO: 季節に応じたセリフ
 
 		this.ai.post({
 			text: typeof note === 'function' ? note() : note
