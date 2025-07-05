@@ -22,6 +22,11 @@ export default class extends Module {
 
 	@bindThis
 	private post() {
+		// TODO: 改善提案
+		// - 時間帯に応じたセリフ（朝・昼・夜）
+		// - 天気APIとの連携
+		// - ユーザーの活動状況に応じたセリフ
+		// - イベント（誕生日、記念日など）に応じた特別なセリフ
 		const now = new Date();
 		const month = now.getMonth() + 1; // 0-11 → 1-12
 		
