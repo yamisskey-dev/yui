@@ -546,6 +546,11 @@ export default class extends Module {
 
 	@bindThis
 	private async mentionHook(msg: Message) {
+		// TODO: 改善提案
+		// - チャットでの会話履歴の永続化（データベースに保存）
+		// - 会話の文脈理解の向上（より長い履歴の保持）
+		// - 複数ユーザーとの同時会話対応
+		// - 会話の感情分析とそれに応じた応答調整
 		// チャットモードの場合は特別処理
 		if (msg.isChat) {
 			// 既に会話中かチェック

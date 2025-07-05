@@ -245,6 +245,11 @@ export default class 唯 {
 	 */
 	@bindThis
 	private async onReceiveMessage(msg: Message): Promise<void> {
+		// TODO: 改善提案
+		// - メッセージの優先度付けシステム
+		// - スパム対策の強化
+		// - メッセージ処理の並列化
+		// - エラーハンドリングの改善
 		this.log(chalk.gray(`<<< An message received: ${chalk.underline(msg.id)}`));
 
 		// Ignore message if the user is a bot
