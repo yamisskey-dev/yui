@@ -128,7 +128,10 @@ export default class extends Module {
 
 			this.onReversiGameStart(game);
 		} else {
-			// todo (リバーシできない旨をメッセージで伝えるなど)
+			// リバーシが無効の場合のメッセージを送信
+			this.ai.sendMessage(inviter.id, {
+				text: serifs.reversi.disabled
+			});
 		}
 	}
 
