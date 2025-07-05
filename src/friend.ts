@@ -198,7 +198,9 @@ export default class Friend {
 		this.doc.perModulesData = src.perModulesData;
 		this.save();
 
-		// TODO: 合言葉を忘れる
+		// 合言葉を忘れる（転送元の合言葉を削除）
+		src.transferCode = null;
+		this.ai.friends.update(src);
 
 		return true;
 	}
