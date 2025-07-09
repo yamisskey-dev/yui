@@ -459,7 +459,7 @@ export default {
 	aichat: {
 		nothing: type => `あぅ... ${type}のAPIキーが登録されてないみたいです`,
 		error: type => `うぇ...${type}でエラーが発生しちゃったみたいです。gemini-flashだと動くかも？`,
-		post: (text, type) => `${text} (${type}) #aichat`,
+		post: (text, type, isChat = false) => isChat ? text : `${text} (${type}) #aichat`,
 	},
 
 	sleepReport: {
