@@ -9,7 +9,7 @@ export default class extends Module {
 
 	@bindThis
 	public install() {
-		if (config.notingEnabled === false) return {};
+		if (config.notingEnabled === "false") return {};
 
 		setInterval(() => {
 			if (Math.random() < 0.04) {

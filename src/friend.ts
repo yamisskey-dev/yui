@@ -199,7 +199,7 @@ export default class Friend {
 		this.save();
 
 		// 合言葉を忘れる（転送元の合言葉を削除）
-		src.transferCode = null;
+		src.transferCode = undefined;
 		this.ai.friends.update(src);
 
 		return true;

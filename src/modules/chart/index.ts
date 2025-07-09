@@ -11,7 +11,7 @@ export default class extends Module {
 
 	@bindThis
 	public install() {
-		if (config.chartEnabled === false) return {};
+		if (config.chartEnabled === "false") return {};
 
 		this.post();
 		setInterval(this.post, 1000 * 60 * 3);
@@ -52,16 +52,16 @@ export default class extends Module {
 				span: 'day',
 				limit: 30,
 				userId: params.user.id
-			});
+			}) as any;
 
 			chart = {
 				title: `@${params.user.username}さんの投稿数`,
 				datasets: [{
-					data: data.diffs.normal
+					data: (data as any).diffs.normal
 				}, {
-					data: data.diffs.reply
+					data: (data as any).diffs.reply
 				}, {
-					data: data.diffs.renote
+					data: (data as any).diffs.renote
 				}]
 			};
 		} else if (type === 'followers') {
@@ -69,29 +69,29 @@ export default class extends Module {
 				span: 'day',
 				limit: 30,
 				userId: params.user.id
-			});
+			}) as any;
 
 			chart = {
 				title: `@${params.user.username}さんのフォロワー数`,
 				datasets: [{
-					data: data.local.followers.total
+					data: (data as any).local.followers.total
 				}, {
-					data: data.remote.followers.total
+					data: (data as any).remote.followers.total
 				}]
 			};
 		} else if (type === 'notes') {
 			const data = await this.ai.api('charts/notes', {
 				span: 'day',
 				limit: 30,
-			});
+			}) as any;
 
 			chart = {
 				datasets: [{
-					data: data.local.diffs.normal
+					data: (data as any).local.diffs.normal
 				}, {
-					data: data.local.diffs.reply
+					data: (data as any).local.diffs.reply
 				}, {
-					data: data.local.diffs.renote
+					data: (data as any).local.diffs.renote
 				}]
 			};
 		} else {

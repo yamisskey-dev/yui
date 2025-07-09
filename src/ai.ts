@@ -266,7 +266,7 @@ export default class 唯 {
 			userId: msg.userId
 		} : {
 			isChat: false,
-			noteId: msg.replyId
+			noteId: msg.replyId ?? undefined
 		});
 
 		let reaction: string | null = 'love';
@@ -311,29 +311,8 @@ export default class 唯 {
 		}
 
 		if (msg.isChat) {
-			// チャットでもリアクションする（絵文字で表現）
-			if (reaction) {
-				// チャットでは絵文字でリアクションを表現
-				const emojiMap: { [key: string]: string } = {
-					'like': '👍',
-					'love': '❤️',
-					'laugh': '😄',
-					'hmm': '🤔',
-					'surprise': '😲',
-					'congrats': '🎉',
-					'angry': '😠',
-					'confused': '😕',
-					'rip': '😢',
-					'pudding': '🍮',
-					'star': '⭐',
-				};
-				
-				const emoji = emojiMap[reaction] || '👍';
-				// チャットではリアクションの代わりに絵文字を送信
-				this.sendMessage(msg.userId, {
-					text: emoji
-				});
-			}
+			// チャットではリアクション（絵文字）を送信しない
+			// 何もしない
 		} else {
 			// リアクションする
 			if (reaction) {
@@ -439,7 +418,7 @@ export default class 唯 {
 	@bindThis
 	public async post(param: any) {
 		const res = await this.api('notes/create', param);
-		return res.createdNote;
+		return (res as any).createdNote;
 	}
 
 	/**
