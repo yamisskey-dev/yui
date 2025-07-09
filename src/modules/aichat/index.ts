@@ -212,7 +212,7 @@ export default class extends Module {
 	}
 
 	@bindThis
-	private async genTextByGemini(aiChat: AiChat, files: base64File[]) {
+	private async genTextByGemini(aiChat: AiChat, files: base64File[], isChat: boolean): Promise<string | null> {
 		this.log('Generate Text By Gemini...');
 		let parts: GeminiParts = [];
 		const now = new Date().toLocaleString('ja-JP', {
@@ -393,8 +393,8 @@ export default class extends Module {
 		let res_data: any = null;
 		let responseText: string = '';
 		try {
-			res_data = await got
-				.post(options, { parseJson: (res: string) => JSON.parse(res) })
+			res_data = await (got as any)
+				.post(options.url, { searchParams: options.searchParams, json: options.json, parseJson: (res: string) => JSON.parse(res) })
 				.json();
 			this.log(JSON.stringify(res_data));
 			if (res_data.hasOwnProperty('candidates')) {
@@ -458,20 +458,16 @@ export default class extends Module {
 						}
 					}
 					// 検索ワード
-					if (
+					if (!isChat &&
 						res_data.candidates[0].groundingMetadata.hasOwnProperty(
 							'webSearchQueries'
 						)
 					) {
-						if (
-							res_data.candidates[0].groundingMetadata.webSearchQueries.length >
-							0
-						) {
+						const queries = res_data.candidates[0].groundingMetadata.webSearchQueries;
+						if (Array.isArray(queries) && queries.length > 0) {
 							groundingMetadata +=
 								'検索ワード: ' +
-								res_data.candidates[0].groundingMetadata.webSearchQueries.join(
-									','
-								) +
+								queries.join(',') +
 								'\n';
 						}
 					}
@@ -495,7 +491,7 @@ export default class extends Module {
 			}
 
 			// エラー情報を返す
-			return { error: true, errorCode, errorMessage };
+			return null;
 		}
 		return responseText;
 	}
@@ -507,36 +503,37 @@ export default class extends Module {
 			return [];
 		}
 
-		const noteData = await this.ai.api('notes/show', { noteId: notesId });
+		const noteData = await this.ai.api('notes/show', { noteId: notesId }) as any;
+		if (!noteData || !noteData.files) {
+			return [];
+		}
 		let files: base64File[] = [];
-		if (noteData !== null && noteData.hasOwnProperty('files')) {
-			for (let i = 0; i < noteData.files.length; i++) {
-				let fileType: string | undefined;
-				let fileUrl: string | undefined;
-				if (noteData.files[i].hasOwnProperty('type')) {
-					fileType = noteData.files[i].type;
-				}
-				if (
-					noteData.files[i].hasOwnProperty('thumbnailUrl') &&
-					noteData.files[i].thumbnailUrl
-				) {
-					fileUrl = noteData.files[i].thumbnailUrl;
-				} else if (
-					noteData.files[i].hasOwnProperty('url') &&
-					noteData.files[i].url
-				) {
-					fileUrl = noteData.files[i].url;
-				}
-				if (fileType !== undefined && fileUrl !== undefined) {
-					try {
-						this.log('fileUrl:' + fileUrl);
-						const file = await urlToBase64(fileUrl);
-						const base64file: base64File = { type: fileType, base64: file };
-						files.push(base64file);
-					} catch (err: unknown) {
-						if (err instanceof Error) {
-							this.log(`${err.name}\n${err.message}\n${err.stack}`);
-						}
+		for (let i = 0; i < noteData.files.length; i++) {
+			let fileType: string | undefined;
+			let fileUrl: string | undefined;
+			if (noteData.files[i].hasOwnProperty('type')) {
+				fileType = noteData.files[i].type;
+			}
+			if (
+				noteData.files[i].hasOwnProperty('thumbnailUrl') &&
+				noteData.files[i].thumbnailUrl
+			) {
+				fileUrl = noteData.files[i].thumbnailUrl;
+			} else if (
+				noteData.files[i].hasOwnProperty('url') &&
+				noteData.files[i].url
+			) {
+				fileUrl = noteData.files[i].url;
+			}
+			if (fileType !== undefined && fileUrl !== undefined) {
+				try {
+					this.log('fileUrl:' + fileUrl);
+					const file = await urlToBase64(fileUrl);
+					const base64file: base64File = { type: fileType, base64: file };
+					files.push(base64file);
+				} catch (err: unknown) {
+					if (err instanceof Error) {
+						this.log(`${err.name}\n${err.message}\n${err.stack}`);
 					}
 				}
 			}
@@ -546,6 +543,10 @@ export default class extends Module {
 
 	@bindThis
 	private async mentionHook(msg: Message) {
+		// 自分自身の投稿には絶対反応しない
+		if (msg.userId === this.ai.account.id) {
+			return false;
+		}
 		// TODO: 改善提案
 		// - チャットでの会話履歴の永続化（データベースに保存）
 		// - 会話の文脈理解の向上（より長い履歴の保持）
@@ -573,9 +574,7 @@ export default class extends Module {
 			if (exist != null) return false;
 
 			// フォロー関係チェック
-			const relation = await this.ai?.api('users/relation', {
-				userId: msg.userId,
-			});
+			const relation = await this.ai?.api('users/relation', { userId: msg.userId }) as any;
 			if (relation[0]?.isFollowing !== true) {
 				this.log('The user is not following me:' + msg.userId);
 				msg.reply('あなたはaichatを実行する権限がありません。');
@@ -607,9 +606,7 @@ export default class extends Module {
 		} else {
 			this.log('AiChat requested');
 
-			const relation = await this.ai?.api('users/relation', {
-				userId: msg.userId,
-			});
+			const relation = await this.ai?.api('users/relation', { userId: msg.userId }) as any;
 
 			if (relation[0]?.isFollowing !== true) {
 				this.log('The user is not following me:' + msg.userId);
@@ -629,14 +626,12 @@ export default class extends Module {
 
 			if (exist != null) return false;
 		} else {
-			const conversationData = await this.ai.api('notes/conversation', {
-				noteId: msg.id,
-			});
+			const conversationData = await this.ai.api('notes/conversation', { noteId: msg.id }) as any;
 
-			if (conversationData != undefined) {
+			if (Array.isArray(conversationData)) {
 				for (const message of conversationData) {
 					exist = this.aichatHist.findOne({ postId: message.id });
-					if (exist != null) return false;
+					if (exist != null) return false; // 履歴があれば即returnで多重反応防止
 				}
 			}
 		}
@@ -652,9 +647,7 @@ export default class extends Module {
 		};
 
 		if (msg.quoteId) {
-			const quotedNote = await this.ai.api('notes/show', {
-				noteId: msg.quoteId,
-			});
+			const quotedNote = await this.ai.api('notes/show', { noteId: msg.quoteId }) as any;
 			current.history = [
 				{
 					role: 'user',
@@ -693,9 +686,7 @@ export default class extends Module {
 			if (exist != null) {
 				this.aichatHist.remove(exist);
 				this.unsubscribeReply(key);
-				msg.reply(
-					'藍チャットを終了しました。また何かあればお声がけくださいね！'
-				);
+				// チャット中は案内文を送らない
 				return true;
 			}
 		}
@@ -722,11 +713,9 @@ export default class extends Module {
 				chatUserId: msg.userId,
 			});
 		} else {
-			const conversationData = await this.ai.api('notes/conversation', {
-				noteId: msg.id,
-			});
+			const conversationData = await this.ai.api('notes/conversation', { noteId: msg.id }) as any;
 
-			if (conversationData == null || conversationData.length == 0) {
+			if (Array.isArray(conversationData) && conversationData.length == 0) {
 				this.log('conversationData is nothing.');
 				return false;
 			}
@@ -742,9 +731,7 @@ export default class extends Module {
 			return false;
 		}
 
-		const relation = await this.ai.api('users/relation', {
-			userId: msg.userId,
-		});
+		const relation = await this.ai.api('users/relation', { userId: msg.userId }) as any;
 		if (relation[0]?.isFollowing !== true) {
 			this.log('The user is not following me: ' + msg.userId);
 			msg.reply('あなたはaichatを実行する権限がありません。');
@@ -765,7 +752,7 @@ export default class extends Module {
 	@bindThis
 	private async aichatRandomTalk() {
 		this.log('AiChat(randomtalk) started');
-		const tl = await this.ai.api('notes/timeline', { limit: 30 });
+		const tl = await this.ai.api('notes/timeline', { limit: 30 }) as any;
 		const interestedNotes = tl.filter(
 			(note) =>
 				note.userId !== this.ai.account.id &&
@@ -793,10 +780,8 @@ export default class extends Module {
 		});
 		if (exist != null) return false;
 
-		const childrenData = await this.ai.api('notes/children', {
-			noteId: choseNote.id,
-		});
-		if (childrenData != undefined) {
+		const childrenData = await this.ai.api('notes/children', { noteId: choseNote.id }) as any;
+		if (Array.isArray(childrenData)) {
 			for (const message of childrenData) {
 				exist = this.aichatHist.findOne({
 					postId: message.id,
@@ -805,11 +790,9 @@ export default class extends Module {
 			}
 		}
 
-		const conversationData = await this.ai.api('notes/conversation', {
-			noteId: choseNote.id,
-		});
+		const conversationData = await this.ai.api('notes/conversation', { noteId: choseNote.id }) as any;
 
-		if (conversationData != undefined) {
+		if (Array.isArray(conversationData)) {
 			for (const message of conversationData) {
 				exist = this.aichatHist.findOne({ postId: message.id });
 				if (exist != null) return false;
@@ -824,9 +807,7 @@ export default class extends Module {
 
 		if (choseNote.user.isBot) return false;
 
-		const relation = await this.ai.api('users/relation', {
-			userId: choseNote.userId,
-		});
+		const relation = await this.ai.api('users/relation', { userId: choseNote.userId }) as any;
 
 		if (relation[0]?.isFollowing === true) {
 			const current: AiChatHist = {
@@ -839,7 +820,7 @@ export default class extends Module {
 			let targetedMessage = choseNote;
 			if (choseNote.extractedText == undefined) {
 				const data = await this.ai.api('notes/show', { noteId: choseNote.id });
-				targetedMessage = new Message(this.ai, data);
+				targetedMessage = new Message(this.ai, data, false);
 			}
 
 			const result = await this.handleAiChat(current, targetedMessage);
@@ -890,7 +871,7 @@ export default class extends Module {
 			fromMention: false,
 		};
 		const base64Files: base64File[] = [];
-		const text = await this.genTextByGemini(aiChat, base64Files);
+		const text = await this.genTextByGemini(aiChat, base64Files, false);
 		if (text) {
 			this.ai.post({ text: text + ' #aichat' });
 		} else {
@@ -970,21 +951,8 @@ export default class extends Module {
 			msg.id,
 			msg.isChat
 		);
-		text = await this.genTextByGemini(aiChat, base64Files);
-
-		if (text && typeof text === 'object' && 'error' in text) {
-			this.log('The result is invalid due to an HTTP error.');
-			msg.reply(
-				serifs.aichat.error(
-					exist.type,
-					(text as any).errorCode,
-					(text as any).errorMessage
-				)
-			);
-			return false;
-		}
-
-		if (text == null || text == '') {
+		text = await this.genTextByGemini(aiChat, base64Files, msg.isChat);
+		if (text == null || text === '') {
 			this.log(
 				'The result is invalid. It seems that tokens and other items need to be reviewed.'
 			);
@@ -992,7 +960,12 @@ export default class extends Module {
 			return false;
 		}
 
-		msg.reply(serifs.aichat.post(text)).then((reply) => {
+		// handleAiChat内で、msg.isChatがtrueの場合はtext末尾の (gemini) #aichat などを除去
+		if (msg.isChat && typeof text === 'string') {
+			text = text.replace(/\n?\(gemini\) ?#aichat/g, '').replace(/#aichat/g, '').replace(/\(gemini\)/g, '');
+		}
+
+		msg.reply(serifs.aichat.post(text, exist.type, msg.isChat)).then((reply) => {
 			if (!exist.history) {
 				exist.history = [];
 			}
@@ -1028,15 +1001,6 @@ export default class extends Module {
 				isChat: msg.isChat,
 				userId: msg.userId,
 			});
-
-			// チャットモードで、かつ最初のメッセージ（履歴が2つしかない）の場合に終了方法を教える
-			if (msg.isChat && exist.history && exist.history.length <= 2) {
-				setTimeout(() => {
-					this.ai.sendMessage(msg.userId, {
-						text: '💡 チャット中に「aichat 終了」「aichat 終わり」「aichat やめる」「aichat 止めて」のいずれかと送信すると会話を終了できます。',
-					});
-				}, 1000); // 少し間を空けて送信
-			}
 		});
 		return true;
 	}
