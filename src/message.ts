@@ -16,31 +16,31 @@ export default class Message {
 	public isChat: boolean;
 
 	public get id(): string {
-		return this.chatMessage ? this.chatMessage.id : this.note.id;
+		return this.chatMessage ? this.chatMessage.id : (this.note ? this.note.id : "");
 	}
 
-	public get user(): User {
-		return this.chatMessage ? this.chatMessage.fromUser : this.note.user;
+	public get user(): any {
+		return this.chatMessage ? this.chatMessage.fromUser : (this.note ? this.note.user : null);
 	}
 
 	public get userId(): string {
-		return this.chatMessage ? this.chatMessage.fromUserId : this.note.userId;
+		return this.chatMessage ? this.chatMessage.fromUserId : (this.note ? this.note.userId : "");
 	}
 
 	public get text(): string {
-		return this.chatMessage ? this.chatMessage.text : this.note.text;
+		return this.chatMessage ? this.chatMessage.text : (this.note ? this.note.text : "");
 	}
 
 	public get quoteId(): string | null {
-		return this.chatMessage ? null : this.note.renoteId;
+		return this.chatMessage ? null : (this.note ? this.note.renoteId : null);
 	}
 
 	public get replyId(): string | null {
-		return this.chatMessage ? null : this.note.replyId;
+		return this.chatMessage ? null : (this.note ? this.note.replyId : null);
 	}
 
 	public get visibility(): string | null {
-		return this.chatMessage ? null : this.note.visibility;
+		return this.chatMessage ? null : (this.note && (this.note as any).visibility ? (this.note as any).visibility : null);
 	}
 
 	/**
@@ -68,7 +68,7 @@ export default class Message {
 		this.ai.api('users/show', {
 			userId: this.userId
 		}).then(user => {
-			this.friend.updateUser(user);
+			this.friend.updateUser(user as any);
 		});
 	}
 
@@ -94,7 +94,7 @@ export default class Message {
 			});
 		} else {
 			return await this.ai.post({
-				replyId: this.note.id,
+				replyId: this.note ? this.note.id : "",
 				text: text,
 				fileIds: opts?.file ? [opts?.file.id] : undefined,
 				cw: opts?.cw,
