@@ -66,14 +66,14 @@ promiseRetry(retry => {
 	}).json().catch(retry);
 }, {
 	retries: 3
-}).then(account => {
-	const acct = `@${account.username}`;
+}).then(async account => {
+	const acct = `@${(account as any).username}`;
 	log(chalk.green(`Account fetched successfully: ${chalk.underline(acct)}`));
 
 	log('Starting AiOS...');
 
 	// 唯起動
-	new 唯(account, [
+	new 唯(account as any, [
 		new CoreModule(),
 		new AiChatModule(),
 		new ReminderModule(),

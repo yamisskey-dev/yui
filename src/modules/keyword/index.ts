@@ -37,7 +37,7 @@ export default class extends Module {
 	private async learn() {
 		const tl = await this.ai.api('notes/local-timeline', {
 			limit: 30
-		});
+		}) as any;
 
 		const interestedNotes = tl.filter(note =>
 			note.userId !== this.ai.account.id &&

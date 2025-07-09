@@ -473,7 +473,7 @@ class Session {
 					json: body
 				}).json();
 
-				return res.createdNote;
+				return (res as any).createdNote;
 			} catch (e) {
 				console.error(e);
 				return null;
