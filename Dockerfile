@@ -1,5 +1,9 @@
 FROM node:20-bookworm-slim
 
+# タイムゾーンを日本時間に設定
+ENV TZ=Asia/Tokyo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 RUN apt-get update && apt-get install tini libpango1.0-dev libcairo2-dev libjpeg-dev libgif-dev build-essential git ca-certificates --no-install-recommends -y && apt-get clean && rm -rf /var/lib/apt-get/lists/*
 
 ARG enable_mecab=1
@@ -16,10 +20,15 @@ RUN if [ $enable_mecab -ne 0 ]; then apt-get update \
   && echo "dicdir = /usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd/" > /etc/mecabrc \
   && apt-get purge git make curl xz-utils file -y; fi
 
-COPY . /ai
-
 WORKDIR /ai
-RUN npm install && npm run build || test -f ./built/index.js
+
+# package.jsonとpackage-lock.jsonを先にコピーしてキャッシュを活用
+COPY package*.json ./
+RUN npm install
+
+# ソースコードをコピーしてビルド
+COPY . .
+RUN npm run build
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD npm start

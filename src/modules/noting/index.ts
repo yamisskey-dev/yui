@@ -75,6 +75,23 @@ export default class extends Module {
 				season = 'winter';
 			}
 
+			// 時間帯判定
+			const hour = now.getHours();
+			let timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night' | 'late_night';
+			if (hour >= 5 && hour < 12) {
+				timeOfDay = 'morning';
+			} else if (hour >= 12 && hour < 17) {
+				timeOfDay = 'afternoon';
+			} else if (hour >= 17 && hour < 21) {
+				timeOfDay = 'evening';
+			} else if (hour >= 21 || hour < 5) {
+				timeOfDay = 'night';
+			} else {
+				timeOfDay = 'late_night';
+			}
+
+			this.log(`[noting] Time of day: ${timeOfDay} (hour: ${hour})`);
+
 			this.log('[noting] Fetching weather...');
 			const weather = await this.fetchWeather();
 			if (!weather) {
@@ -95,7 +112,7 @@ export default class extends Module {
 			// 履歴配列を作成（新しい順）
 			const weatherHistoryArr = Object.values(this.weatherHistoryByDate).slice(-7);
 
-			// --- 天気状況判定ロジック例 ---
+			// --- 天気状況判定ロジック（時間帯考慮） ---
 			let phraseKey = '';
 			let phraseVars: Record<string, any> = {};
 			const today = weather.forecasts[0];
@@ -128,13 +145,33 @@ export default class extends Module {
 				phraseKey = 'sudden_cold';
 				phraseVars = { temp_diff: parseInt(yesterday.temperature.max.celsius) - parseInt(today.temperature.max.celsius) };
 			}
-			// 快晴
+			// 快晴（時間帯別）
 			else if (today.telop.includes('晴') && !today.telop.includes('雨') && !today.telop.includes('曇')) {
-				phraseKey = 'perfect_clear_sky';
+				if (timeOfDay === 'morning') {
+					phraseKey = 'perfect_clear_sky_morning';
+				} else if (timeOfDay === 'afternoon') {
+					phraseKey = 'perfect_clear_sky_afternoon';
+				} else if (timeOfDay === 'evening') {
+					phraseKey = 'perfect_clear_sky_evening';
+				} else if (timeOfDay === 'night') {
+					phraseKey = 'perfect_clear_sky_night';
+				} else {
+					phraseKey = 'perfect_clear_sky';
+				}
 			}
-			// 曇天
+			// 曇天（時間帯別）
 			else if (today.telop.includes('曇') && !today.telop.includes('晴') && !today.telop.includes('雨')) {
-				phraseKey = 'heavy_clouds';
+				if (timeOfDay === 'morning') {
+					phraseKey = 'heavy_clouds_morning';
+				} else if (timeOfDay === 'afternoon') {
+					phraseKey = 'heavy_clouds_afternoon';
+				} else if (timeOfDay === 'evening') {
+					phraseKey = 'heavy_clouds_evening';
+				} else if (timeOfDay === 'night') {
+					phraseKey = 'heavy_clouds_night';
+				} else {
+					phraseKey = 'heavy_clouds';
+				}
 			}
 			// 雨
 			else if (today.telop.includes('雨')) {
@@ -197,9 +234,26 @@ export default class extends Module {
 	private async generateNoteWithGemini({ weather, situation, keywords }) {
 		// Gemini API本実装
 		const prompt = config.autoNotePrompt || config.prompt || 'あなたはMisskeyの女の子AI「唯」として振る舞い、天気や気温、空模様に合わせて自然な一言noteを生成してください。280文字以内。';
-		const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-		const systemInstructionText = `${prompt}\n現在日時は${now}。天気情報・状況・キーワードを参考に、唯らしい雰囲気でnoteを生成してください。`;
-		const userContent = `【天気情報】\n- 天気: ${weather.telop}\n- 詳細: ${weather.detail.weather}\n- 最高気温: ${weather.temperature.max?.celsius ?? '不明'}℃\n- 最低気温: ${weather.temperature.min?.celsius ?? '不明'}℃\n- 降水確率: ${Object.entries(weather.chanceOfRain).map(([k,v])=>`${k}:${v}`).join(' ')}\n【状況】\n${situation}\n【キーワード】\n${keywords.join('、')}`;
+		const now = new Date();
+		const nowStr = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+		
+		// 時間帯判定
+		const hour = now.getHours();
+		let timeOfDayStr = '';
+		if (hour >= 5 && hour < 12) {
+			timeOfDayStr = '朝';
+		} else if (hour >= 12 && hour < 17) {
+			timeOfDayStr = 'お昼';
+		} else if (hour >= 17 && hour < 21) {
+			timeOfDayStr = '夕方';
+		} else if (hour >= 21 || hour < 5) {
+			timeOfDayStr = '夜';
+		} else {
+			timeOfDayStr = '深夜';
+		}
+		
+		const systemInstructionText = `${prompt}\n現在日時は${nowStr}（${timeOfDayStr}）。天気情報・状況・キーワードを参考に、${timeOfDayStr}の時間帯にふさわしい自然なnoteを生成してください。夜の時間帯では「ピクニック」や「外に出たい」などの表現は避けてください。`;
+		const userContent = `【天気情報】\n- 天気: ${weather.telop}\n- 詳細: ${weather.detail.weather}\n- 最高気温: ${weather.temperature.max?.celsius ?? '不明'}℃\n- 最低気温: ${weather.temperature.min?.celsius ?? '不明'}℃\n- 降水確率: ${Object.entries(weather.chanceOfRain).map(([k,v])=>`${k}:${v}`).join(' ')}\n【時間帯】\n${timeOfDayStr}\n【状況】\n${situation}\n【キーワード】\n${keywords.join('、')}`;
 		const geminiModel = config.geminiModel || 'gemini-2.0-flash-exp';
 		const GEMINI_API = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
 		const apiKey = config.geminiApiKey;
