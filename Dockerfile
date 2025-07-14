@@ -28,6 +28,10 @@ RUN npm install
 
 # ソースコードをコピーしてビルド
 COPY . .
+
+# ビルド用のダミーconfig.jsonを作成
+RUN echo '{"host":"http://host.docker.internal:3000","i":"dummy","notingEnabled":"false","keywordEnabled":"false","chartEnabled":"false","reversiEnabled":"false","serverMonitoring":"false"}' > config.json
+
 RUN npm run build
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
