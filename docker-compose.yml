@@ -10,4 +10,6 @@ services:
       - './config.json:/ai/config.json:ro'
       - './font.ttf:/ai/font.ttf:ro'
       - './data:/ai/data'
+      # ↓開発時のみ有効化。ローカルでnpm run build後、docker compose restartで即反映できる
+      # - './built:/ai/built'
     restart: always
