@@ -47,14 +47,30 @@ export default class extends Module {
 	}
 
 	@bindThis
-	private async fetchWeather() {
-		try {
-			const res = await axios.get('https://weather.tsukumijima.net/api/forecast/city/400010');
-			return res.data;
-		} catch (e) {
-			this.log('天気APIの取得に失敗しました: ' + e);
-			return null;
+	private async fetchWeatherWithRetry(retryCount = 3): Promise<any> {
+		for (let i = 0; i < retryCount; i++) {
+			try {
+				const res = await axios.get('https://weather.tsukumijima.net/api/forecast/city/400010');
+				return res.data;
+			} catch (e) {
+				this.log(`天気APIの取得に失敗しました (リトライ${i + 1}/${retryCount}): ` + e);
+				if (i === retryCount - 1) {
+					// 最終失敗時は管理者にDM通知
+					if (config.master) {
+						try {
+							await this.ai.sendMessage(config.master, {
+								text: '[noting] 天気APIの取得に3回失敗しました。ネットワークやAPI障害の可能性があります。'
+							});
+							this.log('[noting] 管理者に天気API障害を通知しました');
+						} catch (notifyErr) {
+							this.log('[noting] 管理者への通知にも失敗: ' + notifyErr);
+						}
+					}
+				}
+				await new Promise(res => setTimeout(res, 2000)); // 2秒待機してリトライ
+			}
 		}
+		return null;
 	}
 
 	@bindThis
@@ -93,7 +109,7 @@ export default class extends Module {
 			this.log(`[noting] Time of day: ${timeOfDay} (hour: ${hour})`);
 
 			this.log('[noting] Fetching weather...');
-			const weather = await this.fetchWeather();
+			const weather = await this.fetchWeatherWithRetry();
 			if (!weather) {
 				this.log('[noting] Weather fetch failed, aborting post.');
 				return;
@@ -119,6 +135,46 @@ export default class extends Module {
 			const yesterday = weatherHistoryArr.length > 1 ? weatherHistoryArr[weatherHistoryArr.length-2].forecasts[0] : null;
 
 			this.log(`[noting] today.telop=${today.telop}, yesterday.telop=${yesterday ? yesterday.telop : 'N/A'}`);
+
+			// === 新しい天候・季節イベントの判定 ===
+			// 台風
+			if (today.telop.includes('台風') || today.detail.weather.includes('台風')) {
+				phraseKey = 'typhoon';
+			}
+			// 大雪
+			else if (today.telop.includes('大雪') || today.detail.weather.includes('大雪') || (today.telop.includes('雪') && today.detail.weather.includes('警報'))) {
+				phraseKey = 'heavy_snow';
+			}
+			// 猛暑日（最高気温35℃以上）
+			else if (today.temperature.max && parseInt(today.temperature.max.celsius) >= 35) {
+				phraseKey = 'extreme_heat';
+			}
+			// 桜（3月下旬〜4月上旬、晴れ or 曇り）
+			else if ((month === 3 && now.getDate() >= 20) || (month === 4 && now.getDate() <= 10)) {
+				if (today.telop.includes('晴') || today.telop.includes('曇')) {
+					phraseKey = 'cherry_blossom';
+				}
+			}
+			// 花粉（3月〜4月、晴れ or 風強い）
+			else if ((month === 3 || month === 4) && (today.telop.includes('晴') || today.detail.weather.includes('風'))) {
+				phraseKey = 'pollen';
+			}
+			// 黄砂（春、telopやdetailに黄砂）
+			else if ((month >= 3 && month <= 5) && (today.telop.includes('黄砂') || today.detail.weather.includes('黄砂'))) {
+				phraseKey = 'yellow_sand';
+			}
+			// 雷雨
+			else if ((today.telop.includes('雷') || today.detail.weather.includes('雷')) && today.telop.includes('雨')) {
+				phraseKey = 'thunderstorm';
+			}
+			// 霜（11月〜3月、最低気温0℃以下）
+			else if ((month >= 11 || month <= 3) && today.temperature.min && today.temperature.min.celsius && parseInt(today.temperature.min.celsius) <= 0) {
+				phraseKey = 'frost';
+			}
+			// 虹（雨明け晴れ、かつtelopやdetailに虹）
+			else if ((yesterday && yesterday.telop.includes('雨') && today.telop.includes('晴')) && (today.detail.weather.includes('虹') || today.telop.includes('虹'))) {
+				phraseKey = 'rainbow';
+			}
 
 			// 連続雨（過去3日間）
 			if (weatherHistoryArr.slice(-3).every(w => w.forecasts[0].telop.includes('雨'))) {
