@@ -25,22 +25,13 @@ export default class extends Module {
 				this.log('[noting] setTimeout: calling post(forcePost=true)');
 				this.post(true).then(() => {
 					this.log('[noting] 起動時post()呼び出し完了');
+					// 起動時の投稿後、次の投稿時刻を設定
+					this.scheduleNextPost();
 				}).catch(e => this.log('[noting] post() error: ' + e));
 			} catch (e) {
 				this.log('[noting] setTimeout error: ' + e);
 			}
 		}, 0);
-
-		setInterval(() => {
-			try {
-				this.log('[noting] setInterval: calling post(forcePost=false)');
-				this.post(false).then(() => {
-					this.log('[noting] 定期post()呼び出し完了');
-				}).catch(e => this.log('[noting] post() error: ' + e));
-			} catch (e) {
-				this.log('[noting] setInterval error: ' + e);
-			}
-		}, 1000 * 60 * 60 * 6);
 
 		this.log('[noting] install() finished');
 		return {};
@@ -235,7 +226,8 @@ export default class extends Module {
 			}
 			// デフォルト
 			else {
-				phraseKey = 'perfect_weather_day';
+				// 既存パターンに該当しない場合は、AIに未知・珍しい・説明が難しい天気として状況を説明し、柔軟なnoteを生成させる
+				phraseKey = 'unknown_weather';
 			}
 
 			this.log(`[noting] 判定されたphraseKey=${phraseKey}, phraseVars=${JSON.stringify(phraseVars)}`);
@@ -259,9 +251,16 @@ export default class extends Module {
 			}
 			this.weatherNoteHistory[todayStr].push(phraseKey);
 
-			const phrase = weather_phrases[phraseKey] || weather_phrases['perfect_weather_day'];
-			const situation = phrase.situation.replace(/\{(\w+)\}/g, (_, k) => phraseVars[k] ?? '');
-			const keywords = phrase.keywords;
+			let situation = '';
+			let keywords: string[] = [];
+			if (phraseKey === 'unknown_weather') {
+				situation = `今日は珍しい天気（API情報: telop=${today.telop}, 詳細=${today.detail.weather}）。どんな天気か説明が難しいけど、今の空や気分を自由に表現してみて。`;
+				keywords = [today.telop, today.detail.weather, '珍しい', '未知', '説明が難しい', '空', '気分'];
+			} else {
+				const phrase = weather_phrases[phraseKey] || weather_phrases['perfect_weather_day'];
+				situation = phrase.situation.replace(/\{(\w+)\}/g, (_, k) => phraseVars[k] ?? '');
+				keywords = phrase.keywords;
+			}
 
 			this.log(`[noting] Gemini入力: situation=${situation}, keywords=${JSON.stringify(keywords)}`);
 
@@ -285,6 +284,30 @@ export default class extends Module {
 		} catch (e) {
 			this.log('[noting] post() top-level error: ' + e);
 		}
+	}
+
+	@bindThis
+	private scheduleNextPost() {
+		// 12〜36時間の乱数で次の投稿時刻を決定
+		const minHours = 12;
+		const maxHours = 36;
+		const randomHours = Math.floor(Math.random() * (maxHours - minHours + 1)) + minHours;
+		const nextIntervalMs = randomHours * 60 * 60 * 1000;
+		
+		this.log(`[noting] 次の投稿を${randomHours}時間後（${new Date(Date.now() + nextIntervalMs).toLocaleString('ja-JP')}）に予約`);
+		
+		setTimeout(() => {
+			try {
+				this.log('[noting] scheduled post: calling post(forcePost=false)');
+				this.post(false).then(() => {
+					this.log('[noting] 定期post()呼び出し完了');
+					// 投稿後、次の投稿時刻を再設定
+					this.scheduleNextPost();
+				}).catch(e => this.log('[noting] post() error: ' + e));
+			} catch (e) {
+				this.log('[noting] scheduled post error: ' + e);
+			}
+		}, nextIntervalMs);
 	}
 
 	private async generateNoteWithGemini({ weather, situation, keywords }) {
