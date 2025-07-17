@@ -41,7 +41,7 @@ export type Meta = {
  * 唯
  */
 export default class 唯 {
-	public readonly version = pkg._v;
+	public readonly version = pkg.version;
 	public account: User;
 	public connection: Stream;
 	public modules: Module[] = [];

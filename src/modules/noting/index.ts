@@ -10,9 +10,9 @@ import got from 'got';
 export default class extends Module {
 	public readonly name = 'noting';
 
-	// 天気履歴を日付ごとに最大7日分保存
+	// 天気履歴を日付ごとに最大7日分保存（最新7日分のみ保持）
 	private weatherHistoryByDate: Record<string, any> = {};
-	// 天気note投稿履歴（日付ごとに投稿したphraseKeyを記録）
+	// 天気note投稿履歴（日付ごとに投稿したphraseKeyを記録。同じ現象は1日1回のみ投稿）
 	private weatherNoteHistory: Record<string, string[]> = {};
 
 	@bindThis
@@ -20,6 +20,7 @@ export default class extends Module {
 		this.log('[noting] install() called');
 		if (config.notingEnabled === "false") return {};
 
+		// 起動時に必ず1回投稿し、その後ランダム間隔で定期投稿をスケジューリング
 		setTimeout(() => {
 			try {
 				this.log('[noting] setTimeout: calling post(forcePost=true)');
@@ -39,6 +40,7 @@ export default class extends Module {
 
 	@bindThis
 	private async fetchWeatherWithRetry(retryCount = 3): Promise<any> {
+		// 天気APIを最大3回リトライ。失敗時は管理者にDM通知。
 		for (let i = 0; i < retryCount; i++) {
 			try {
 				const res = await axios.get('https://weather.tsukumijima.net/api/forecast/city/400010');
@@ -68,19 +70,20 @@ export default class extends Module {
 	private async post(forcePost = false) {
 		try {
 			this.log(`[noting] post() called at ${new Date().toISOString()} forcePost=${forcePost}`);
-			const now = new Date();
+		const now = new Date();
 			const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
 			const month = now.getMonth() + 1;
-			let season: 'spring' | 'summer' | 'autumn' | 'winter';
-			if (month >= 3 && month <= 5) {
-				season = 'spring';
-			} else if (month >= 6 && month <= 8) {
-				season = 'summer';
-			} else if (month >= 9 && month <= 11) {
-				season = 'autumn';
-			} else {
-				season = 'winter';
-			}
+		// 季節判定
+		let season: 'spring' | 'summer' | 'autumn' | 'winter';
+		if (month >= 3 && month <= 5) {
+			season = 'spring';
+		} else if (month >= 6 && month <= 8) {
+			season = 'summer';
+		} else if (month >= 9 && month <= 11) {
+			season = 'autumn';
+		} else {
+			season = 'winter';
+		}
 
 			// 時間帯判定
 			const hour = now.getHours();
@@ -107,7 +110,7 @@ export default class extends Module {
 			}
 			this.log(`[noting] Weather fetched: ${JSON.stringify(weather)}`);
 
-			// === 履歴を日付ごとに保存 ===
+			// === 履歴を日付ごとに保存（最大7日分） ===
 			this.weatherHistoryByDate[todayStr] = weather;
 			// 7日以上前の履歴を削除
 			const dates = Object.keys(this.weatherHistoryByDate).sort();
@@ -119,7 +122,7 @@ export default class extends Module {
 			// 履歴配列を作成（新しい順）
 			const weatherHistoryArr = Object.values(this.weatherHistoryByDate).slice(-7);
 
-			// --- 天気状況判定ロジック（時間帯考慮） ---
+			// --- 天気状況判定ロジック（時間帯・季節・気温・telop/detailを考慮） ---
 			let phraseKey = '';
 			let phraseVars: Record<string, any> = {};
 			const today = weather.forecasts[0];
@@ -128,6 +131,7 @@ export default class extends Module {
 			this.log(`[noting] today.telop=${today.telop}, yesterday.telop=${yesterday ? yesterday.telop : 'N/A'}`);
 
 			// === 新しい天候・季節イベントの判定 ===
+			// ここから下は各現象ごとに分岐。今後も拡張しやすいように記述。
 			// 台風
 			if (today.telop.includes('台風') || today.detail.weather.includes('台風')) {
 				phraseKey = 'typhoon';
@@ -254,6 +258,7 @@ export default class extends Module {
 			let situation = '';
 			let keywords: string[] = [];
 			if (phraseKey === 'unknown_weather') {
+				// 未知・説明困難な天気はAIに柔軟なnote生成を指示
 				situation = `今日は珍しい天気（API情報: telop=${today.telop}, 詳細=${today.detail.weather}）。どんな天気か説明が難しいけど、今の空や気分を自由に表現してみて。`;
 				keywords = [today.telop, today.detail.weather, '珍しい', '未知', '説明が難しい', '空', '気分'];
 			} else {
@@ -288,7 +293,7 @@ export default class extends Module {
 
 	@bindThis
 	private scheduleNextPost() {
-		// 12〜36時間の乱数で次の投稿時刻を決定
+		// 12〜36時間の乱数で次の投稿時刻を決定し、setTimeoutで再帰的にスケジューリング
 		const minHours = 12;
 		const maxHours = 36;
 		const randomHours = Math.floor(Math.random() * (maxHours - minHours + 1)) + minHours;
