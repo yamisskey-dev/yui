@@ -1,73 +1,66 @@
 import { bindThis } from '@/decorators.js';
-import { parse } from 'twemoji-parser';
-
-import type { Note } from '@/misskey/note.js';
 import Module from '@/module.js';
-import Stream from '@/stream.js';
-import includes from '@/utils/includes.js';
+import Message from '@/message.js';
+import serifs from '@/serifs.js';
 import { sleep } from '@/utils/sleep.js';
+import { selectContextualEmoji } from '@/utils/emoji-selector.js';
 
 export default class extends Module {
 	public readonly name = 'emoji-react';
 
-	private htl: ReturnType<Stream['useSharedConnection']>;
-
 	@bindThis
 	public install() {
-		this.htl = this.ai.connection.useSharedConnection('homeTimeline');
-		this.htl.on('note', this.onNote);
-
-		return {};
+		return {
+			mentionHook: this.mentionHook,
+			noteHook: this.noteHook
+		};
 	}
 
 	@bindThis
-	private async onNote(note: Note) {
-		if (note.reply != null) return;
-		if (note.text == null) return;
-		if (note.text.includes('@')) return; // (自分または他人問わず)メンションっぽかったらreject
+	private async mentionHook(msg: Message) {
+		if (msg.includes(['ぴざ', 'ピザ'])) {
+			const emoji = await selectContextualEmoji('食べ物');
+			msg.reply(serifs.emojiReact.pizza(emoji));
+			return true;
+		}
 
-		const react = async (reaction: string, immediate = false) => {
-			if (!immediate) {
-				await sleep(1500);
-			}
-			this.ai.api('notes/reactions/create', {
+		if (msg.includes(['ぷりん', 'プリン'])) {
+			const emoji = await selectContextualEmoji('食べ物');
+			msg.reply(serifs.emojiReact.pudding(emoji));
+			return true;
+		}
+
+		if (msg.includes(['寿司', 'すし', 'sushi'])) {
+			const emoji = await selectContextualEmoji('食べ物');
+			msg.reply(serifs.emojiReact.sushi(emoji));
+			return true;
+		}
+
+		if (msg.includes(['唯'])) {
+			const emoji = await selectContextualEmoji('挨拶');
+			msg.reply(serifs.emojiReact.yui(emoji));
+			return true;
+		}
+
+		return false;
+	}
+
+	@bindThis
+	private async noteHook(note: any) {
+		if (note.replyId != null) return;
+		// 自分の投稿にはリアクションしない
+		if (note.userId === this.ai.account.id) return;
+
+		// ノート内容に絵文字が含まれているかチェック
+		const text = note.text || '';
+		if (text.includes(':')) {
+			// カスタム絵文字が含まれている場合
+			const emoji = await selectContextualEmoji(text);
+			await sleep(1000);
+			await this.ai.api('notes/reactions/create', {
 				noteId: note.id,
-				reaction: reaction
+				reaction: emoji
 			});
-		};
-
-		const customEmojis = note.text.match(/:([^\n:]+?):/g);
-		if (customEmojis) {
-			// カスタム絵文字が複数種類ある場合はキャンセル
-			if (!customEmojis.every((val, i, arr) => val === arr[0])) return;
-
-			this.log(`Custom emoji detected - ${customEmojis[0]}`);
-
-			return react(customEmojis[0]);
 		}
-
-		const emojis = parse(note.text).map(x => x.text);
-		if (emojis.length > 0) {
-			// 絵文字が複数種類ある場合はキャンセル
-			if (!emojis.every((val, i, arr) => val === arr[0])) return;
-
-			this.log(`Emoji detected - ${emojis[0]}`);
-
-			let reaction = emojis[0];
-
-			switch (reaction) {
-				case '✊': return react('🖐', true);
-				case '✌': return react('✊', true);
-				case '🖐': case '✋': return react('✌', true);
-			}
-
-			return react(reaction);
-		}
-
-		if (includes(note.text, ['ぴざ'])) return react('🍕');
-		if (includes(note.text, ['ぷりん'])) return react('🍮');
-		if (includes(note.text, ['寿司', 'sushi']) || note.text === 'すし') return react('🍣');
-
-		if (includes(note.text, ['唯'])) return react('🙌');
 	}
 }

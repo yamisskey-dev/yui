@@ -46,11 +46,15 @@ export default class extends Module {
 			data.lastBirthdayChecked = today;
 			friend.setPerModulesData(this, data);
 
-			const text = serifs.birthday.happyBirthday(friend.name);
+			const text = serifs.birthday.happyBirthday(friend.name || undefined);
+
+			const uniqueId = friend.userId + today;
+			if (this.isAlreadyResponded(uniqueId)) return;
 
 			this.ai.sendMessage(friend.userId, {
 				text: text
 			});
+			this.markResponded(uniqueId);
 		});
 	}
 }

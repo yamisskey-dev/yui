@@ -5,6 +5,7 @@ import Message from '@/message.js';
 import serifs from '@/serifs.js';
 import type { User } from '@/misskey/user.js';
 import { acct } from '@/utils/acct.js';
+import { selectEmoji } from '@/utils/emoji-selector.js';
 
 type Game = {
 	votes: {
@@ -41,49 +42,34 @@ export default class extends Module {
 	}
 
 	@bindThis
-	private async mentionHook(msg: Message) {
-		if (!msg.includes(['数取り'])) return false;
-
-		const games = this.games.find({});
-
-		const recentGame = games.length == 0 ? null : games[games.length - 1];
-
-		if (recentGame) {
-			// 現在アクティブなゲームがある場合
-			if (!recentGame.isEnded) {
-				msg.reply(serifs.kazutori.alreadyStarted, {
-					renote: recentGame.postId
-				});
-				return true;
-			}
-
-			// 直近のゲームから1時間経ってない場合
-			if (Date.now() - recentGame.startedAt < 1000 * 60 * 60) {
-				msg.reply(serifs.kazutori.matakondo);
-				return true;
-			}
+	private genNumbers(): number[] {
+		const numbers: number[] = [];
+		for (let i = 0; i < 10; i++) {
+			numbers.push(Math.floor(Math.random() * 100) + 1);
 		}
+		return numbers;
+	}
 
-		const post = await this.ai.post({
-			text: serifs.kazutori.intro(limitMinutes)
-		});
-
-		this.games.insertOne({
-			votes: [],
-			isEnded: false,
-			startedAt: Date.now(),
-			postId: post.id
-		});
-
-		this.subscribeReply(null, false, post.id);
-
-		this.log('New kazutori game started');
-
-		return true;
+	@bindThis
+	private async mentionHook(msg: Message) {
+		const id = msg.id;
+		if (id && this.isAlreadyResponded(id)) return false;
+		if (msg.includes(['数取り', 'かずとり', 'kazutori'])) {
+			const numbers = this.genNumbers();
+			const icon = await selectEmoji('game');
+			msg.reply(`**数取りゲーム${icon}**\n${numbers.join(' ')}`, {
+				immediate: true
+			});
+			if (id) this.markResponded(id);
+			return true;
+		}
+		return false;
 	}
 
 	@bindThis
 	private async contextHook(key: any, msg: Message) {
+		const id = msg.id || key;
+		if (id && this.isAlreadyResponded(id)) return;
 		if (msg.text == null) return {
 			reaction: 'hmm'
 		};

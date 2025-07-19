@@ -1,6 +1,9 @@
 import { bindThis } from '@/decorators.js';
 import 唯, { InstallerResult } from '@/ai.js';
 
+// 応答済みID管理用セット
+const respondedIdSet = new Set<string>();
+
 export default abstract class Module {
 	public abstract readonly name: string;
 
@@ -59,6 +62,20 @@ export default abstract class Module {
 	@bindThis
 	public setTimeoutWithPersistence(delay: number, data?: any) {
 		this.ai.setTimeoutWithPersistence(this, delay, data);
+	}
+
+	/**
+	 * 指定IDに既に応答済みか判定
+	 */
+	protected isAlreadyResponded(id: string): boolean {
+		return respondedIdSet.has(id);
+	}
+
+	/**
+	 * 指定IDを応答済みとして記録
+	 */
+	protected markResponded(id: string) {
+		respondedIdSet.add(id);
 	}
 
 	@bindThis

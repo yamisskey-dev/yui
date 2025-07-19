@@ -4,6 +4,7 @@ import Message from '@/message.js';
 import serifs from '@/serifs.js';
 import seedrandom from 'seedrandom';
 import { genItem } from '@/vocabulary.js';
+import { selectEmoji } from '@/utils/emoji-selector.js';
 
 export const blessing = [
 	'唯吉',
@@ -48,19 +49,27 @@ export default class extends Module {
 	}
 
 	@bindThis
+	private genOmikuji(): string {
+		const date = new Date();
+		const seed = `${date.getFullYear()}/${date.getMonth()}/${date.getDate()}@${this.ai.account.id}`;
+		const rng = seedrandom(seed);
+		return blessing[Math.floor(rng() * blessing.length)];
+	}
+
+	@bindThis
 	private async mentionHook(msg: Message) {
-		if (msg.includes(['占', 'うらな', '運勢', 'おみくじ'])) {
-			const date = new Date();
-			const seed = `${date.getFullYear()}/${date.getMonth()}/${date.getDate()}@${msg.userId}`;
-			const rng = seedrandom(seed);
-			const omikuji = blessing[Math.floor(rng() * blessing.length)];
-			const item = genItem(rng);
-			msg.reply(`**${omikuji}🎉**\nラッキーアイテム: ${item}`, {
-				cw: serifs.fortune.cw(msg.friend.name)
+		const id = msg.id;
+		if (id && this.isAlreadyResponded(id)) return false;
+		if (msg.includes(['おみくじ', 'omikuji', '占い'])) {
+			const omikuji = this.genOmikuji();
+			const item = genItem();
+			const emoji = await selectEmoji('celebration');
+			msg.reply(`**${omikuji}${emoji}**\nラッキーアイテム: ${item}`, {
+				immediate: true
 			});
+			if (id) this.markResponded(id);
 			return true;
-		} else {
-			return false;
 		}
+		return false;
 	}
 }

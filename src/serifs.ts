@@ -1,3 +1,5 @@
+import { selectEmoji, selectContextualEmoji } from './utils/emoji-selector.js';
+
 // せりふ
 
 export default {
@@ -8,7 +10,10 @@ export default {
 
 		yesOrNo: '「はい」か「いいえ」しかわからないんです...',
 
-		hello: name => name ? `こんにちは、${name}♪` : `こんにちは♪`,
+		hello: async name => {
+			const emoji = await selectEmoji('greeting');
+			return name ? `こんにちは、${name}♪ ${emoji}` : `こんにちは♪ ${emoji}`;
+		},
 
 		helloNight: name => name ? `こんばんは、${name}♪` : `こんばんは♪`,
 
@@ -164,7 +169,10 @@ export default {
 	},
 
 	birthday: {
-		happyBirthday: name => name ? `お誕生日おめでとうございます、${name}🎉` : 'お誕生日おめでとうございます🎉',
+		happyBirthday: async (name?: string) => {
+			const emoji = await selectEmoji('birthday');
+			return name ? `お誕生日おめでとうございます、${name} ${emoji}` : `お誕生日おめでとうございます ${emoji}`;
+		},
 	},
 
 	/**
@@ -303,55 +311,27 @@ export default {
 	 * 数当てゲーム
 	 */
 	guessingGame: {
-		/**
-		 * やろうと言われたけど既にやっているとき
-		 */
-		alreadyStarted: 'え、ゲームは既に始まってますよ！',
-
-		/**
-		 * タイムライン上で誘われたとき
-		 */
-		plzDm: 'メッセージでやりましょう！',
-
-		/**
-		 * ゲーム開始
-		 */
+		start: '数当てゲームを始めます！1から100までの数字を当ててください。',
 		started: '0~100の秘密の数を当ててみてください♪',
-
-		/**
-		 * 数字じゃない返信があったとき
-		 */
+		plzDm: 'メッセージでやりましょう！',
+		alreadyStarted: 'え、ゲームは既に始まってますよ！',
 		nan: '数字でお願いします！「やめる」と言ってゲームをやめることもできますよ！',
-
-		/**
-		 * 中止を要求されたとき
-		 */
 		cancel: 'わかりました～。ありがとうございました♪',
-
-		/**
-		 * 小さい数を言われたとき
-		 */
-		grater: num => `${num}より大きいですね`,
-
-		/**
-		 * 小さい数を言われたとき(2度目)
-		 */
-		graterAgain: num => `もう一度言いますが${num}より大きいですよ！`,
-
-		/**
-		 * 大きい数を言われたとき
-		 */
-		less: num => `${num}より小さいですね`,
-
-		/**
-		 * 大きい数を言われたとき(2度目)
-		 */
-		lessAgain: num => `もう一度言いますが${num}より小さいですよ！`,
-
-		/**
-		 * 正解したとき
-		 */
-		congrats: tries => `正解です🎉 (${tries}回目で当てました)`,
+		grater: (num: string) => `${num}より大きいですね`,
+		graterAgain: (num: string) => `もう一度言いますが${num}より大きいですよ！`,
+		less: (num: string) => `${num}より小さいですね`,
+		lessAgain: (num: string) => `もう一度言いますが${num}より小さいですよ！`,
+		correct: async (tries: number) => {
+			const emoji = await selectEmoji('win');
+			return `正解です${emoji} (${tries}回目で当てました)`;
+		},
+		congrats: async (tries: string) => {
+			const emoji = await selectEmoji('win');
+			return `正解です${emoji} (${tries}回目で当てました)`;
+		},
+		high: 'もっと小さい数字です',
+		low: 'もっと大きい数字です',
+		end: 'ゲーム終了です',
 	},
 
 	/**
@@ -578,6 +558,13 @@ export default {
 		want: item => `${item}、欲しいなぁ...`,
 		see: item => `お散歩していたら、道に${item}が落ちているのを見たんです！`,
 		expire: item => `気づいたら、${item}の賞味期限が切れてました…`,
+	},
+
+	emojiReact: {
+		pizza: (emoji: string) => `ピザが食べたいです ${emoji}`,
+		pudding: (emoji: string) => `プリンが食べたいです ${emoji}`,
+		sushi: (emoji: string) => `寿司が食べたいです ${emoji}`,
+		yui: (emoji: string) => `唯です ${emoji}`,
 	},
 };
 
