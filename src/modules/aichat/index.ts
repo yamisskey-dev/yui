@@ -543,6 +543,9 @@ export default class extends Module {
 
 	@bindThis
 	private async mentionHook(msg: Message) {
+		const id = msg.id;
+		if (id && this.isAlreadyResponded(id)) return false;
+
 		// 自分自身の投稿には絶対反応しない
 		if (msg.userId === this.ai.account.id) {
 			return false;

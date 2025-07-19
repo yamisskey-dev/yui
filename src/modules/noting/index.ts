@@ -6,6 +6,7 @@ import config from '@/config.js';
 import axios from 'axios';
 import { weather_phrases } from '@/serifs.js';
 import got from 'got';
+import { getEmojiListForAI, selectEmoji, fetchEmojis, emojiMapping } from '@/utils/emoji-selector.js';
 
 export default class extends Module {
 	public readonly name = 'noting';
@@ -316,6 +317,9 @@ export default class extends Module {
 	}
 
 	private async generateNoteWithGemini({ weather, situation, keywords }) {
+		// Misskeyカスタム絵文字リストを取得
+		const emojiList = await getEmojiListForAI();
+		
 		// Gemini API本実装
 		const prompt = config.autoNotePrompt || config.prompt || 'あなたはMisskeyの女の子AI「唯」として振る舞い、天気や気温、空模様に合わせて自然な一言noteを生成してください。280文字以内。';
 		const now = new Date();
@@ -336,7 +340,17 @@ export default class extends Module {
 			timeOfDayStr = '深夜';
 		}
 		
-		const systemInstructionText = `${prompt}\n現在日時は${nowStr}（${timeOfDayStr}）。天気情報・状況・キーワードを参考に、${timeOfDayStr}の時間帯にふさわしい自然なnoteを生成してください。夜の時間帯では「ピクニック」や「外に出たい」などの表現は避けてください。`;
+		const systemInstructionText = `${prompt}\n現在日時は${nowStr}（${timeOfDayStr}）。天気情報・状況・キーワードを参考に、${timeOfDayStr}の時間帯にふさわしい自然なnoteを生成してください。夜の時間帯では「ピクニック」や「外に出たい」などの表現は避けてください。
+
+【重要】絵文字の使用について：
+- Unicode絵文字（😀、🌞、🌧️など）は一切使用しないでください
+- 代わりに、以下のMisskeyカスタム絵文字リストから適切なものを選んで使用してください
+- 絵文字は「:絵文字名:」の形式で使用してください（例: :niko:、:blobsmile:）
+- 天気や気分に応じて、自然に1-2個の絵文字を挿入してください
+- 必ず以下のリストに含まれる絵文字のみを使用してください。リストにない絵文字は使用しないでください
+
+【使用可能なMisskeyカスタム絵文字一覧】
+${emojiList}`;
 		const userContent = `【天気情報】\n- 天気: ${weather.telop}\n- 詳細: ${weather.detail.weather}\n- 最高気温: ${weather.temperature.max?.celsius ?? '不明'}℃\n- 最低気温: ${weather.temperature.min?.celsius ?? '不明'}℃\n- 降水確率: ${Object.entries(weather.chanceOfRain).map(([k,v])=>`${k}:${v}`).join(' ')}\n【時間帯】\n${timeOfDayStr}\n【状況】\n${situation}\n【キーワード】\n${keywords.join('、')}`;
 		const geminiModel = config.geminiModel || 'gemini-2.0-flash-exp';
 		const GEMINI_API = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
@@ -353,7 +367,82 @@ export default class extends Module {
 				json: geminiOptions
 			}).json();
 			if (res && res.candidates && Array.isArray(res.candidates) && res.candidates[0] && res.candidates[0].content && res.candidates[0].content.parts && res.candidates[0].content.parts[0].text) {
-				return res.candidates[0].content.parts[0].text.trim();
+				let generatedNote = res.candidates[0].content.parts[0].text.trim();
+				
+				// AIが絵文字を使わなかった場合、天気に応じた絵文字を自動追加
+				if (!generatedNote.includes(':')) {
+					let weatherEmoji = '';
+					// ポジティブ・ネガティブ判定
+					const positiveWords = ['美味', '楽しい', '嬉しい', '幸せ', 'まったり', 'ほっこり', 'ご飯', '好き', '最高', 'いい', '素敵', '快適', '晴れ', '元気', '笑', '癒し'];
+					const negativeWords = ['雨', '寒い', '悲しい', 'つらい', 'しんどい', '寂しい', '疲れ', 'どんより', '憂鬱', 'やだ', '嫌', '困る', '大変', '苦しい', '泣', '曇', '不安'];
+					const text = generatedNote;
+					let mood: 'positive' | 'negative' | 'neutral' = 'neutral';
+					if (positiveWords.some(w => text.includes(w))) mood = 'positive';
+					else if (negativeWords.some(w => text.includes(w))) mood = 'negative';
+					// 絵文字選択
+					if (mood === 'positive') {
+						weatherEmoji = await selectEmoji('happy');
+					} else if (mood === 'negative') {
+						weatherEmoji = await selectEmoji('rainy');
+					} else {
+						weatherEmoji = await selectEmoji('default');
+					}
+					// note内に既に同じ絵文字が含まれていれば追加しない
+					if (!generatedNote.includes(weatherEmoji)) {
+						generatedNote += ` ${weatherEmoji}`;
+					}
+				} else {
+					// AIが絵文字を使った場合、存在しない絵文字を置換
+					const emojis = await fetchEmojis();
+					const existingEmojiNames = emojis.map(e => e.name);
+					const emojiRegex = /:([^:]+):/g;
+					let usedEmojis: string[] = [];
+					generatedNote = generatedNote.replace(emojiRegex, (match, emojiName) => {
+						if (existingEmojiNames.includes(emojiName)) {
+							if (usedEmojis.includes(emojiName)) return '';
+							usedEmojis.push(emojiName);
+							return match;
+						} else {
+							// 存在しない絵文字は感情に応じて置換
+							const positiveWords = ['美味', '楽しい', '嬉しい', '幸せ', 'まったり', 'ほっこり', 'ご飯', '好き', '最高', 'いい', '素敵', '快適', '晴れ', '元気', '笑', '癒し'];
+							const negativeWords = ['雨', '寒い', '悲しい', 'つらい', 'しんどい', '寂しい', '疲れ', 'どんより', '憂鬱', 'やだ', '嫌', '困る', '大変', '苦しい', '泣', '曇', '不安'];
+							const text = generatedNote;
+							let mood: 'positive' | 'negative' | 'neutral' = 'neutral';
+							if (positiveWords.some(w => text.includes(w))) mood = 'positive';
+							else if (negativeWords.some(w => text.includes(w))) mood = 'negative';
+							if (mood === 'positive') return ':blobsmile:';
+							if (mood === 'negative') return ':ablob_sadrain:';
+							return ':niko:';
+						}
+					});
+				}
+				
+				// note内で同じ絵文字が複数回使われていたら、同カテゴリの未使用絵文字に置換
+				const emojiRegex = /:([^:]+):/g;
+				let match;
+				let usedEmojis: string[] = [];
+				let replacedNote = generatedNote;
+				while ((match = emojiRegex.exec(generatedNote)) !== null) {
+					const emojiName = match[1];
+					if (usedEmojis.includes(emojiName)) {
+						// 同カテゴリの未使用絵文字を探す
+						const category = Object.entries(emojiMapping).find(([_, arr]) => (arr as string[]).includes(emojiName));
+						if (category) {
+							const [cat, arr] = category;
+							const candidates = (arr as string[]).filter(e => !usedEmojis.includes(e));
+							if (candidates.length > 0) {
+								const newEmoji = candidates[Math.floor(Math.random() * candidates.length)];
+								replacedNote = replacedNote.replace(`:${emojiName}:`, `:${newEmoji}:`);
+								usedEmojis.push(newEmoji);
+							} // 使い切ったらそのまま
+						}
+					} else {
+						usedEmojis.push(emojiName);
+					}
+				}
+				generatedNote = replacedNote;
+				
+				return generatedNote;
 			}
 			return '[Gemini応答なし]';
 		} catch (e) {

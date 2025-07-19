@@ -30,6 +30,8 @@ export default class extends Module {
 
 	@bindThis
 	private async mentionHook(msg: Message) {
+		const id = msg.id;
+		if (id && this.isAlreadyResponded(id)) return false;
 		if (!msg.includes(['数当て', '数あて'])) return false;
 
 		const exist = this.guesses.findOne({
@@ -52,11 +54,14 @@ export default class extends Module {
 			this.subscribeReply(msg.userId, msg.isChat, msg.isChat ? msg.userId : reply.id);
 		});
 
+		if (id) this.markResponded(id);
 		return true;
 	}
 
 	@bindThis
 	private async contextHook(key: any, msg: Message) {
+		const id = msg.id || key;
+		if (id && this.isAlreadyResponded(id)) return;
 		if (msg.text == null) return;
 
 		const exist = this.guesses.findOne({
@@ -108,7 +113,7 @@ export default class extends Module {
 				: serifs.guessingGame.graterAgain(g.toString());
 		} else {
 			end = true;
-			text = serifs.guessingGame.congrats(exist.tries.length.toString());
+			text = await serifs.guessingGame.congrats(exist.tries.length.toString());
 		}
 
 		if (end) {
@@ -124,5 +129,6 @@ export default class extends Module {
 				this.subscribeReply(msg.userId, msg.isChat, reply.id);
 			}
 		});
+		if (id) this.markResponded(id);
 	}
 }

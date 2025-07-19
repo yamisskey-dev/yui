@@ -17,10 +17,11 @@ export default class extends Module {
 
 	@bindThis
 	private async mentionHook(msg: Message) {
-		if (!msg.text) return false;
+		const id = msg.id;
+		if (id && this.isAlreadyResponded(id)) return false;
 
-		return (
-			this.greet(msg) ||
+		let result = (
+			await this.greet(msg) ||
 			this.erait(msg) ||
 			this.omedeto(msg) ||
 			this.nadenade(msg) ||
@@ -35,10 +36,12 @@ export default class extends Module {
 			this.rmrf(msg) ||
 			this.shutdown(msg)
 		);
+		if (result && id) this.markResponded(id);
+		return result;
 	}
 
 	@bindThis
-	private greet(msg: Message): boolean {
+	private async greet(msg: Message): Promise<boolean> {
 		if (msg.text == null) return false;
 
 		const incLove = () => {
@@ -62,7 +65,7 @@ export default class extends Module {
 			.substr(1);
 
 		if (msg.includes(['こんにちは', 'こんにちわ'])) {
-			msg.reply(serifs.core.hello(msg.friend.name));
+			msg.reply(await serifs.core.hello(msg.friend.name));
 			incLove();
 			return true;
 		}
