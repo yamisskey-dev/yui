@@ -12,6 +12,8 @@
 | コア | Ping | [[features/core/ping.md]] | 🟢 |
 | 会話・AI | 会話 | [[features/communication/talk.md]] | 🟢 |
 | 会話・AI | AIチャット | [[features/communication/aichat.md]] | 🟢 |
+| 会話・AI | 感情分析システム | [[features/communication/emotion-analysis.md]] | 🟢 |
+| 会話・AI | 記憶管理システム | [[features/communication/memory-management.md]] | 🟢 |
 | 会話・AI | キーワード学習 | [[features/communication/keyword.md]] | ❌ |
 | ゲーム | リバーシ | [[features/game/reversi.md]] | 🟢 |
 | ゲーム | 数当てゲーム | [[features/game/guessing-game.md]] | 🟢 |
