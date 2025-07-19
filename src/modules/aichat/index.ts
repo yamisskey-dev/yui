@@ -132,6 +132,8 @@ export default class extends Module {
 	private aichatHist: loki.Collection<AiChatHist>;
 	private randomTalkProbability: number = RANDOMTALK_DEFAULT_PROBABILITY;
 	private randomTalkIntervalMinutes: number = RANDOMTALK_DEFAULT_INTERVAL;
+	private customEmojis: Set<string> = new Set(); // カスタム絵文字の名前をキャッシュ
+
 
 	@bindThis
 	public install() {
@@ -192,6 +194,9 @@ export default class extends Module {
 			this.log('Gemini自動ノート投稿確率: probability=' + probability);
 		}
 
+		// カスタム絵文字の情報を取得
+		this.loadCustomEmojis();
+
 		return {
 			mentionHook: this.mentionHook,
 			contextHook: this.contextHook,
@@ -206,6 +211,84 @@ export default class extends Module {
 			url.includes('m.youtube.com') ||
 			url.includes('youtu.be')
 		);
+	}
+
+	@bindThis
+	private async loadCustomEmojis() {
+		try {
+			this.log('[aichat]: Loading custom emojis...');
+			const emojisData = await this.ai.api('admin/emoji/list', {
+				limit: 1000
+			}) as any[];
+			
+			this.customEmojis.clear();
+			for (const emoji of emojisData) {
+				this.customEmojis.add(emoji.name);
+			}
+			this.log(`[aichat]: Loaded ${this.customEmojis.size} custom emojis`);
+		} catch (error) {
+			this.log(`[aichat]: Failed to load custom emojis: ${error}`);
+			// 権限がない場合は、基本的なカスタム絵文字を追加
+			// これらは投稿後に絵文字に変換されるタイプ
+			const basicCustomEmojis = [
+				'blobsmile', 'blobsob', 'ablob_sadrain', '09neko', 'blobcatno',
+				'blobcatyes', 'blobcatthink', 'blobcatcry', 'blobcatangry',
+				'blobcatlove', 'blobcatwink', 'blobcatblush', 'blobcatpunch',
+				'blobcatfearful', 'blobcatworried', 'blobcatcold_sweat',
+				'blobcatsweat', 'blobcatneutral_face', 'blobcatexpressionless'
+			];
+			basicCustomEmojis.forEach(emoji => this.customEmojis.add(emoji));
+			this.log(`[aichat]: Using fallback custom emojis: ${basicCustomEmojis.length} emojis`);
+		}
+	}
+
+	@bindThis
+	private isCustomEmoji(emojiName: string): boolean {
+		return this.customEmojis.has(emojiName);
+	}
+
+	@bindThis
+	private processEmojis(text: string): string {
+		// :emoji:形式の絵文字を検出
+		const emojiRegex = /:([a-zA-Z0-9_]+):/g;
+		return text.replace(emojiRegex, (match, emojiName) => {
+			if (this.isCustomEmoji(emojiName)) {
+				// カスタム絵文字の場合はそのまま返す（投稿後にMisskeyが自動変換）
+				return match;
+			} else {
+				// 通常の絵文字の場合は、Unicode絵文字に変換
+				// これらはエディターで即座に絵文字に変換されるタイプ
+				const emojiMap: { [key: string]: string } = {
+					'smile': '😊',
+					'heart': '❤️',
+					'cry': '😢',
+					'angry': '😠',
+					'thinking': '🤔',
+					'blush': '😊',
+					'wink': '😉',
+					'ok_hand': '👌',
+					'thumbsup': '👍',
+					'clap': '👏',
+					'tada': '🎉',
+					'sparkles': '✨',
+					'star': '⭐',
+					'rainbow': '🌈',
+					'sunny': '☀️',
+					'broken_heart': '💔',
+					'disappointed': '😞',
+					'rage': '😡',
+					'punch': '👊',
+					'fearful': '😨',
+					'worried': '😟',
+					'cold_sweat': '😰',
+					'sweat': '😅',
+					'neutral_face': '😐',
+					'expressionless': '😑'
+				};
+				
+				return emojiMap[emojiName] || match; // マッピングがない場合は元のまま
+			}
+		});
 	}
 
 	@bindThis
@@ -254,7 +337,8 @@ export default class extends Module {
 			aiChat.prompt +
 			'また、現在日時は' +
 			now +
-			'であり、これは回答の参考にし、絶対に時刻を聞かれるまで時刻情報は提供しないこと(なお、他の日時は無効とすること)。';
+			'であり、これは回答の参考にし、絶対に時刻を聞かれるまで時刻情報は提供しないこと(なお、他の日時は無効とすること)。' +
+			'絵文字については、Misskeyカスタム絵文字（:smile:, :heart:, :cry:, :angry:, :thinking:など）を使用してください。標準絵文字は使用しないでください。';
 		if (aiChat.friendName != undefined) {
 			systemInstructionText +=
 				'なお、会話相手の名前は' + aiChat.friendName + 'とする。';
@@ -264,6 +348,24 @@ export default class extends Module {
 			systemInstructionText +=
 				'これらのメッセージは、あなたに対するメッセージではないことを留意し、返答すること(会話相手は突然話しかけられた認識している)。';
 		}
+		
+		// 感情的な質問や相談の場合はグラウンディングを無効化
+		const emotionalKeywords = [
+			'辛い', '苦しい', '悲しい', '寂しい', '死にたい', '消えたい', '生きる意味', '希望がない',
+			'かまって', '愛して', '好き', '嫌い', '怒り', '不安', '怖い', '心配',
+			'疲れた', '眠い', 'だるい', 'やる気がない', '無価値', 'ダメ', '失敗',
+			'助けて', 'どうすれば', 'どうしたら', '困ってる', '悩んでる'
+		];
+		
+		const isEmotionalQuestion = emotionalKeywords.some(keyword => 
+			aiChat.question.includes(keyword)
+		);
+		
+		if (isEmotionalQuestion) {
+			this.log('Emotional question detected, disabling grounding');
+			aiChat.grounding = false;
+		}
+		
 		// グラウンディングについてもsystemInstructionTextに追記(こうしないとあまり使わないので)
 		if (aiChat.grounding) {
 			systemInstructionText += '返答のルール2:Google search with grounding.';
@@ -583,6 +685,7 @@ export default class extends Module {
 
 	@bindThis
 	private async mentionHook(msg: Message) {
+		this.log('mentionHook... msg.id=' + msg.id + ', text=' + msg.text?.substring(0, 50));
 		const id = msg.id;
 		if (id && this.isAlreadyResponded(id)) return false;
 
@@ -590,21 +693,11 @@ export default class extends Module {
 		if (msg.userId === this.ai.account.id) {
 			return false;
 		}
-		// TODO: 改善提案
-		// - チャットでの会話履歴の永続化（データベースに保存）
-		// - 会話の文脈理解の向上（より長い履歴の保持）
-		// - 複数ユーザーとの同時会話対応
-		// - 会話の感情分析とそれに応じた応答調整
+
 		// チャットモードの場合は特別処理
 		if (msg.isChat) {
 			// aichatコマンドが含まれている場合は無視
-			if (
-				msg.includes(['aichat']) ||
-				msg.includes(['終了']) ||
-				msg.includes(['終わり']) ||
-				msg.includes(['やめる']) ||
-				msg.includes(['止めて'])
-			) {
+			if (msg.includes(['aichat'])) {
 				return false;
 			}
 
@@ -636,54 +729,37 @@ export default class extends Module {
 				chatUserId: msg.userId,
 			};
 
-			const result = await this.handleAiChat(current, msg);
+			// チャットモードでは返信投稿を作成
+			const result = await this.handleAiChat(current, msg, false);
 			if (result) {
 				return { reaction: 'like' };
 			}
 			return false;
 		}
 
-		// ノート投稿の場合は従来通り @yui aichat が必要
-		if (!msg.includes([this.name])) {
+		// ノート投稿の場合はメンションがあれば応答
+		this.log('AiChat requested via mention');
+
+		const relation = await this.ai?.api('users/relation', { userId: msg.userId }) as any;
+
+		if (relation[0]?.isFollowing !== true) {
+			this.log('The user is not following me:' + msg.userId);
+			msg.reply('あなたはaichatを実行する権限がありません。');
 			return false;
-		} else {
-			this.log('AiChat requested');
-
-			const relation = await this.ai?.api('users/relation', { userId: msg.userId }) as any;
-
-			if (relation[0]?.isFollowing !== true) {
-				this.log('The user is not following me:' + msg.userId);
-				msg.reply('あなたはaichatを実行する権限がありません。');
-				return false;
-			}
 		}
 
-		let exist: AiChatHist | null = null;
-
-		// チャットメッセージの場合、会話APIは使わず直接処理する
-		if (msg.isChat) {
-			exist = this.aichatHist.findOne({
-				isChat: true,
-				chatUserId: msg.userId,
-			});
-
-			if (exist != null) return false;
-		} else {
-			const conversationData = await this.ai.api('notes/conversation', { noteId: msg.id }) as any;
-
-			if (Array.isArray(conversationData)) {
-				for (const message of conversationData) {
-					exist = this.aichatHist.findOne({ postId: message.id });
-					if (exist != null) return false; // 履歴があれば即returnで多重反応防止
-				}
-			}
+		// 既に返信済みかチェック
+		const exist = this.aichatHist.findOne({ postId: msg.id });
+		if (exist != null) {
+			this.log('Already replied to this note');
+			return false;
 		}
 
-		let type = TYPE_GEMINI;
+		// 新しい会話を作成
 		const current: AiChatHist = {
 			postId: msg.id,
 			createdAt: Date.now(),
-			type: type,
+			type: TYPE_GEMINI,
 			fromMention: true,
 			isChat: msg.isChat,
 			chatUserId: msg.isChat ? msg.userId : undefined,
@@ -702,10 +778,8 @@ export default class extends Module {
 
 		if (msg.quoteId) {
 			const quotedNote = await this.ai.api('notes/show', { noteId: msg.quoteId }) as any;
-			// 新しい会話の場合はcurrentに直接設定
-			if (exist && (exist as any).memory) {
-				// 既存の会話がある場合はmemoryに追加
-				(exist as any).memory.conversations.push({
+			current.memory = {
+				conversations: [{
 					id: 'quoted',
 					timestamp: Date.now(),
 					userMessage: quotedNote.text,
@@ -713,76 +787,38 @@ export default class extends Module {
 					context: 'quoted',
 					importance: 7,
 					isActive: true
-				});
-			} else {
-				// 新しい会話の場合はcurrentに設定
-				current.memory = {
-					conversations: [{
-						id: 'quoted',
-						timestamp: Date.now(),
-						userMessage: quotedNote.text,
-						aiResponse: '',
-						context: 'quoted',
-						importance: 7,
-						isActive: true
-					}],
-					userProfile: {
-						name: friendName || 'ユーザー',
-						interests: [],
-						conversationStyle: 'casual',
-						lastInteraction: Date.now()
-					},
-					conversationContext: {
-						currentTopic: '',
-						mood: 'neutral',
-						relationshipLevel: 5
-					}
-				};
-			}
+				}],
+				userProfile: {
+					name: friendName || 'ユーザー',
+					interests: [],
+					conversationStyle: 'casual',
+					lastInteraction: Date.now()
+				},
+				conversationContext: {
+					currentTopic: '',
+					mood: 'neutral',
+					relationshipLevel: 5
+				}
+			};
 		}
 
-		const result = await this.handleAiChat(current, msg);
-
+		// 返信投稿を作成（リアクションはMisskeyの仕様で自動的に作成される）
+		const result = await this.handleAiChat(current, msg, false);
 		if (result) {
-			return { reaction: 'like' };
+			return true; // リアクションは返さない（Misskeyが自動的に作成するため）
 		}
 		return false;
 	}
 
 	@bindThis
 	private async contextHook(key: any, msg: Message) {
-		this.log('contextHook...');
+		this.log('contextHook... msg.id=' + msg.id + ', text=' + msg.text?.substring(0, 50));
 		if (msg.text == null) return false;
-
-		// チャットモードでaichatを終了するコマンドを追加
-		if (
-			msg.isChat &&
-			(msg.includes(['aichat 終了']) ||
-				msg.includes(['aichat 終わり']) ||
-				msg.includes(['aichat やめる']) ||
-				msg.includes(['aichat 止めて']))
-		) {
-			const exist = this.aichatHist.findOne({
-				isChat: true,
-				chatUserId: msg.userId,
-			});
-
-			if (exist != null) {
-				this.aichatHist.remove(exist);
-				this.unsubscribeReply(key);
-				// チャット中は案内文を送らない
-				return true;
-			}
-		}
 
 		// チャットモードでaichatコマンドが含まれている場合は無視
 		if (
 			msg.isChat &&
-			(msg.includes(['aichat']) ||
-				msg.includes(['終了']) ||
-				msg.includes(['終わり']) ||
-				msg.includes(['やめる']) ||
-				msg.includes(['止めて']))
+			msg.includes(['aichat'])
 		) {
 			// コマンドとして認識された場合は処理しない
 			return false;
@@ -797,6 +833,7 @@ export default class extends Module {
 				chatUserId: msg.userId,
 			});
 		} else {
+			// 通常の会話継続の場合
 			const conversationData = await this.ai.api('notes/conversation', { noteId: msg.id }) as any;
 
 			if (Array.isArray(conversationData) && conversationData.length == 0) {
@@ -964,7 +1001,7 @@ export default class extends Module {
 	}
 
 	@bindThis
-	private async handleAiChat(exist: AiChatHist, msg: Message) {
+	private async handleAiChat(exist: AiChatHist, msg: Message, skipReply: boolean = false) {
 		let text: string | null, aiChat: AiChat;
 		let prompt: string = '';
 		if (config.prompt) {
@@ -1045,12 +1082,26 @@ export default class extends Module {
 			return false;
 		}
 
+		// 絵文字処理を適用
+		text = this.processEmojis(text);
+
 		// handleAiChat内で、msg.isChatがtrueの場合はtext末尾の (gemini) #aichat などを除去
 		if (msg.isChat && typeof text === 'string') {
 			text = text.replace(/\n?\(gemini\) ?#aichat/g, '').replace(/#aichat/g, '').replace(/\(gemini\)/g, '');
 		}
 
-		msg.reply(serifs.aichat.post(text, exist.type, msg.isChat)).then((reply) => {
+		// skipReplyがtrueの場合は返信投稿をスキップ
+		if (skipReply) {
+			this.log('Skipping reply due to skipReply flag');
+			return true;
+		}
+
+		// 返信投稿を作成（リアクションは作成しない）
+		this.ai.api('notes/create', {
+			replyId: msg.id,
+			text: serifs.aichat.post(text, exist.type, msg.isChat),
+			visibility: msg.isChat ? 'specified' : 'public'
+		}).then((reply: any) => {
 			if (!exist.memory) {
 				exist.memory = {
 					conversations: [],
@@ -1240,58 +1291,102 @@ export default class extends Module {
 	}
 
 	/**
-	 * 会話の文脈を分析
+	 * 会話の文脈を分析（高度な分析）
 	 */
 	@bindThis
 	private analyzeConversationContext(message: string): string {
 		const context: string[] = [];
 		
-		// 感情分析
-		if (message.includes('😊') || message.includes('嬉しい') || message.includes('楽しい')) {
+		// 感情分析（新しいanalyzeMoodメソッドを使用）
+		const mood = this.analyzeMood(message);
+		if (mood === 'happy') {
 			context.push('positive_emotion');
-		}
-		if (message.includes('😢') || message.includes('悲しい') || message.includes('辛い')) {
+		} else if (['sad', 'angry', 'anxious'].includes(mood)) {
 			context.push('negative_emotion');
 		}
 		
-		// 話題分析
-		if (message.includes('天気') || message.includes('雨') || message.includes('晴れ')) {
-			context.push('weather');
+		// 高度な話題分析
+		const topicKeywords = {
+			weather: ['天気', '雨', '晴れ', '曇り', '雪', '台風', '気温', '暑い', '寒い', '湿度'],
+			work: ['仕事', '会社', '職場', '上司', '同僚', '会議', '残業', '給料', '転職', '就職'],
+			hobby: ['趣味', '好き', '興味', 'ゲーム', '映画', '音楽', '読書', 'スポーツ', '料理', '旅行'],
+			family: ['家族', '親', '子供', '兄弟', '姉妹', '夫', '妻', '結婚', '離婚', '育児'],
+			friends: ['友達', '友人', '仲間', '彼氏', '彼女', 'デート', '恋愛', '片思い', '告白'],
+			food: ['食べ物', '料理', 'レストラン', 'カフェ', 'お酒', '飲み会', 'グルメ', 'ダイエット'],
+			health: ['健康', '病気', '病院', '薬', '痛い', '疲れ', 'ストレス', '睡眠', '運動'],
+			technology: ['パソコン', 'スマホ', 'アプリ', 'プログラミング', 'AI', '機械学習', 'インターネット'],
+			education: ['学校', '大学', '勉強', '試験', 'テスト', '宿題', '研究', '論文', '卒業'],
+			money: ['お金', '貯金', '投資', '株', '保険', 'ローン', '借金', '節約', '浪費']
+		};
+		
+		for (const [topic, keywords] of Object.entries(topicKeywords)) {
+			if (keywords.some(keyword => message.includes(keyword))) {
+				context.push(topic);
+			}
 		}
-		if (message.includes('仕事') || message.includes('会社') || message.includes('職場')) {
-			context.push('work');
+		
+		// 会話の種類分析
+		if (message.includes('？') || message.includes('?')) {
+			context.push('question');
 		}
-		if (message.includes('趣味') || message.includes('好き') || message.includes('興味')) {
-			context.push('hobby');
+		if (message.includes('！') || message.includes('!')) {
+			context.push('exclamation');
+		}
+		if (message.includes('...') || message.includes('…')) {
+			context.push('hesitation');
 		}
 		
 		return context.join(',') || 'general';
 	}
 
 	/**
-	 * メッセージの重要度を計算
+	 * メッセージの重要度を計算（高度な分析）
 	 */
 	@bindThis
 	private calculateImportance(message: string): number {
 		let importance = 5; // デフォルト重要度
+		
+		// 感情分析を利用
+		const mood = this.analyzeMood(message);
+		if (mood === 'happy') importance += 2;
+		if (mood === 'sad') importance += 3;
+		if (mood === 'angry') importance += 3;
+		if (mood === 'anxious') importance += 2;
 		
 		// 質問は重要
 		if (message.includes('？') || message.includes('?')) {
 			importance += 2;
 		}
 		
-		// 感情的な内容は重要
-		if (message.includes('嬉しい') || message.includes('悲しい') || message.includes('怒')) {
-			importance += 3;
+		// 個人的な内容は重要
+		if (message.includes('私') || message.includes('僕') || message.includes('俺') || message.includes('自分')) {
+			importance += 2;
 		}
 		
-		// 個人的な内容は重要
-		if (message.includes('私') || message.includes('僕') || message.includes('俺')) {
-			importance += 2;
+		// 緊急度の高い内容
+		if (message.includes('急いで') || message.includes('すぐ') || message.includes('今すぐ') || message.includes('助けて')) {
+			importance += 3;
 		}
 		
 		// 長いメッセージは重要
 		if (message.length > 50) {
+			importance += 1;
+		}
+		if (message.length > 100) {
+			importance += 1;
+		}
+		
+		// 絵文字の使用（感情表現）
+		const emojiCount = (message.match(/:[a-zA-Z_]+:/g) || []).length;
+		if (emojiCount > 0) {
+			importance += Math.min(emojiCount, 2);
+		}
+		
+		// 強調表現
+		if (message.includes('！') || message.includes('!')) {
+			importance += 1;
+		}
+		if (message.includes('すごく') || message.includes('とても') || message.includes('めちゃくちゃ')) {
 			importance += 1;
 		}
 		
@@ -1339,21 +1434,21 @@ export default class extends Module {
 	 */
 	@bindThis
 	private extractCurrentTopic(message: string): string {
-		const topics = {
-			'天気': 'weather',
-			'仕事': 'work',
-			'趣味': 'hobby',
-			'家族': 'family',
-			'友達': 'friends',
-			'食べ物': 'food',
-			'映画': 'movie',
-			'音楽': 'music',
-			'ゲーム': 'game',
-			'旅行': 'travel'
+		const topicKeywords = {
+			weather: ['天気', '雨', '晴れ', '曇り', '雪', '台風', '気温', '暑い', '寒い', '湿度'],
+			work: ['仕事', '会社', '職場', '上司', '同僚', '会議', '残業', '給料', '転職', '就職'],
+			hobby: ['趣味', '好き', '興味', 'ゲーム', '映画', '音楽', '読書', 'スポーツ', '料理', '旅行'],
+			family: ['家族', '親', '子供', '兄弟', '姉妹', '夫', '妻', '結婚', '離婚', '育児'],
+			friends: ['友達', '友人', '仲間', '彼氏', '彼女', '恋人', 'デート', '飲み会', 'サークル'],
+			food: ['食べ物', '料理', 'レストラン', 'カフェ', 'お酒', '甘い', '辛い', '美味しい', 'まずい'],
+			technology: ['パソコン', 'スマホ', 'アプリ', 'プログラミング', 'AI', '機械学習', 'インターネット'],
+			health: ['健康', '病気', '病院', '薬', 'ダイエット', '運動', '睡眠', 'ストレス', '疲れ'],
+			money: ['お金', '貯金', '投資', '株', '保険', 'ローン', '節約', '浪費', '給料', '副業'],
+			education: ['学校', '大学', '勉強', '試験', 'テスト', '宿題', '研究', '論文', '卒業', '入学']
 		};
 		
-		for (const [keyword, topic] of Object.entries(topics)) {
-			if (message.includes(keyword)) {
+		for (const [topic, keywords] of Object.entries(topicKeywords)) {
+			if (keywords.some(keyword => message.includes(keyword))) {
 				return topic;
 			}
 		}
@@ -1362,27 +1457,107 @@ export default class extends Module {
 	}
 
 	/**
-	 * メッセージの感情を分析
+	 * メッセージの感情を分析（高度な分析）
 	 */
 	@bindThis
 	private analyzeMood(message: string): string {
-		if (message.includes('😊') || message.includes('嬉しい') || message.includes('楽しい')) {
-			return 'happy';
+		// Misskeyカスタム絵文字の感情分析
+		const emojiSentiments = {
+			// ポジティブ系
+			':smile:': 'happy', ':grin:': 'happy', ':laughing:': 'happy', ':joy:': 'happy',
+			':heart:': 'happy', ':heart_eyes:': 'happy', ':blush:': 'happy', ':wink:': 'happy',
+			':ok_hand:': 'happy', ':thumbsup:': 'happy', ':clap:': 'happy', ':tada:': 'happy',
+			':sparkles:': 'happy', ':star:': 'happy', ':rainbow:': 'happy', ':sunny:': 'happy',
+			
+			// ネガティブ系
+			':cry:': 'sad', ':sob:': 'sad', ':broken_heart:': 'sad', ':disappointed:': 'sad',
+			':rage:': 'angry', ':angry:': 'angry', ':punch:': 'angry', ':middle_finger:': 'angry',
+			':fearful:': 'anxious', ':worried:': 'anxious', ':cold_sweat:': 'anxious', ':sweat:': 'anxious',
+			
+			// その他
+			':thinking:': 'neutral', ':neutral_face:': 'neutral', ':expressionless:': 'neutral'
+		};
+
+		// 絵文字の感情をチェック
+		for (const [emoji, sentiment] of Object.entries(emojiSentiments)) {
+			if (message.includes(emoji)) {
+				return sentiment;
+			}
 		}
-		if (message.includes('😢') || message.includes('悲しい') || message.includes('辛い')) {
-			return 'sad';
+
+		// 高度なキーワード分析
+		const sentimentKeywords = {
+			happy: [
+				'嬉しい', '楽しい', '幸せ', '最高', '素晴らしい', '感動', '感激', '興奮',
+				'ワクワク', 'ドキドキ', 'やったー', 'よっしゃ', 'やった', '成功', '達成',
+				'感謝', 'ありがとう', '愛してる', '大好き', '完璧', '理想'
+			],
+			sad: [
+				'悲しい', '辛い', '苦しい', '切ない', '寂しい', '孤独', '絶望', '失望',
+				'落ち込む', '凹む', 'しんどい', '疲れた', '死にたい', '消えたい', '終わり',
+				'諦める', '無理', 'ダメ', '失敗', '後悔', '申し訳ない', 'ごめん'
+			],
+			angry: [
+				'怒', 'イライラ', '腹立つ', 'ムカつく', 'キレる', '許せない', '最悪',
+				'クソ', 'うざい', 'うるさい', 'しつこい', 'めんどくさい', 'やだ',
+				'嫌い', '大嫌い', '消えろ', '死ね', '殺す', 'ぶっ殺す', '殴る'
+			],
+			anxious: [
+				'不安', '心配', '怖い', '恐い', '緊張', 'ドキドキ', 'ハラハラ',
+				'焦る', '急ぐ', '間に合わない', 'やばい', 'まずい', '危険',
+				'大変', '困る', 'どうしよう', '助けて', '助け', '救い'
+			]
+		};
+
+		// 感情スコアを計算
+		const scores = { happy: 0, sad: 0, angry: 0, anxious: 0, neutral: 0 };
+		
+		for (const [sentiment, keywords] of Object.entries(sentimentKeywords)) {
+			for (const keyword of keywords) {
+				const count = (message.match(new RegExp(keyword, 'g')) || []).length;
+				scores[sentiment as keyof typeof scores] += count * 2; // キーワードは重み2
+			}
 		}
-		if (message.includes('😠') || message.includes('怒') || message.includes('イライラ')) {
-			return 'angry';
+
+		// 文脈分析（否定語、強調語の考慮）
+		const negationWords = ['ない', 'ません', 'じゃない', 'ではない', '違う', 'ちがう'];
+		const emphasisWords = ['すごく', 'とても', 'めちゃくちゃ', '超', '激', '死ぬほど', 'マジで'];
+		
+		// 否定語の処理（より自然な方法）
+		const hasNegation = negationWords.some(word => message.includes(word));
+		const hasEmphasis = emphasisWords.some(word => message.includes(word));
+		
+		if (hasNegation) {
+			// 否定語がある場合、ポジティブな感情を減らし、ネガティブな感情を増やす
+			scores.happy = Math.max(0, scores.happy - 2);
+			scores.sad = scores.sad + 1;
+			scores.anxious = scores.anxious + 1;
 		}
-		if (message.includes('😰') || message.includes('不安') || message.includes('心配')) {
-			return 'anxious';
+		
+		if (hasEmphasis) {
+			// 強調語がある場合は感情スコアを倍増
+			Object.keys(scores).forEach(key => {
+				if (key !== 'neutral') {
+					scores[key as keyof typeof scores] *= 1.5;
+				}
+			});
 		}
+
+		// 最高スコアの感情を返す
+		const maxScore = Math.max(...Object.values(scores));
+		if (maxScore === 0) return 'neutral';
+		
+		for (const [sentiment, score] of Object.entries(scores)) {
+			if (score === maxScore) {
+				return sentiment;
+			}
+		}
+		
 		return 'neutral';
 	}
 
 	/**
-	 * 人間らしい文脈を生成
+	 * 人間らしい文脈を生成（高度な分析）
 	 */
 	@bindThis
 	private generateHumanLikeContext(memory: any): string {
@@ -1416,7 +1591,14 @@ export default class extends Module {
 		}
 		
 		if (memory.conversationContext?.mood && memory.conversationContext.mood !== 'neutral') {
-			context += `相手の気分: ${memory.conversationContext.mood}\n`;
+			const moodLabels = {
+				'happy': '嬉しい',
+				'sad': '悲しい', 
+				'angry': '怒っている',
+				'anxious': '不安・心配',
+				'neutral': '普通'
+			};
+			context += `相手の気分: ${moodLabels[memory.conversationContext.mood as keyof typeof moodLabels]}\n`;
 		}
 		
 		return context;

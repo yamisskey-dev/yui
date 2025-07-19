@@ -8,7 +8,8 @@ export default class extends Module {
 	@bindThis
 	public install() {
 		return {
-			mentionHook: this.mentionHook
+			mentionHook: this.mentionHook,
+			followHook: this.followHook
 		};
 	}
 
@@ -30,5 +31,20 @@ export default class extends Module {
 		} else {
 			return false;
 		}
+	}
+
+	@bindThis
+	private async followHook(msg: Message) {
+		// フォローされたら自動でフォローを返す
+		if (!msg.user.isFollowing) {
+			this.log(`[follow]: Auto-following user ${msg.user.username} (${msg.userId})`);
+			await this.ai.api('following/create', {
+				userId: msg.userId,
+			});
+			this.log(`[follow]: Successfully followed ${msg.user.username}`);
+		} else {
+			this.log(`[follow]: Already following ${msg.user.username}, skipping auto-follow`);
+		}
+		return true;
 	}
 }
