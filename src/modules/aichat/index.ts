@@ -21,7 +21,8 @@ type AiChat = {
 	fromMention: boolean;
 	friendName?: string;
 	grounding?: boolean;
-	history?: { role: string; content: string }[];
+	history?: { role: string; content: string }[]; // 後方互換性のため残す
+	memory?: any; // 新しい人間らしい記憶システム
 };
 type base64File = {
 	type: string;
@@ -58,17 +59,43 @@ type AiChatHist = {
 	createdAt: number;
 	type: string;
 	api?: string;
+	// より自然な記憶管理のための構造
+	memory?: {
+		conversations: {
+			id: string;
+			timestamp: number;
+			userMessage: string;
+			aiResponse: string;
+			context?: string; // 会話の文脈（感情、話題など）
+			importance: number; // 重要度（0-10）
+			isActive: boolean; // アクティブな記憶かどうか
+		}[];
+		userProfile?: {
+			name: string;
+			interests: string[];
+			conversationStyle: string;
+			lastInteraction: number;
+		};
+		conversationContext?: {
+			currentTopic: string;
+			mood: string;
+			relationshipLevel: number; // 親密度
+		};
+	};
+	// 後方互換性のため残す
 	history?: {
 		role: string;
 		content: string;
+		index?: number;
+		isForgotten?: boolean;
 	}[];
 	friendName?: string;
 	originalNoteId?: string;
 	fromMention: boolean;
 	grounding?: boolean;
-	youtubeUrls?: string[]; // YouTubeのURLを保存するための配列を追加
-	isChat?: boolean; // チャットメッセージかどうかを示すフラグを追加
-	chatUserId?: string; // チャットの場合、ユーザーIDを保存
+	youtubeUrls?: string[];
+	isChat?: boolean;
+	chatUserId?: string;
 };
 
 type UrlPreview = {
@@ -304,10 +331,16 @@ export default class extends Module {
 			}
 		}
 
+		let contents: GeminiContents[] = [];
+
 		// 保存されたYouTubeのURLを会話履歴から取得
 		if (aiChat.history && aiChat.history.length > 0) {
+			// 忘却されていない履歴のみを使用
+			const activeHistory = this.getActiveHistory(aiChat.history);
+			this.log(`[aichat] 使用する履歴: ${activeHistory.length}件（忘却済み: ${aiChat.history.length - activeHistory.length}件）`);
+			
 			// historyの最初のユーザーメッセージをチェック
-			const firstUserMessage = aiChat.history.find(
+			const firstUserMessage = activeHistory.find(
 				(entry) => entry.role === 'user'
 			);
 			if (firstUserMessage) {
@@ -328,6 +361,22 @@ export default class extends Module {
 						}
 					}
 				}
+			}
+			
+			for (const hist of activeHistory) {
+				contents.push({
+					role: hist.role,
+					parts: [{ text: hist.content }],
+				});
+			}
+		}
+
+		// 人間らしい記憶システムを使用
+		if (aiChat.memory) {
+			const humanContext = this.generateHumanLikeContext(aiChat.memory);
+			if (humanContext) {
+				systemInstructionText += '\n\n' + humanContext;
+				this.log(`[aichat] 人間らしい文脈を追加: ${humanContext.length}文字`);
 			}
 		}
 
@@ -361,15 +410,6 @@ export default class extends Module {
 			}
 		}
 
-		let contents: GeminiContents[] = [];
-		if (aiChat.history != null) {
-			aiChat.history.forEach((entry) => {
-				contents.push({
-					role: entry.role,
-					parts: [{ text: entry.content }],
-				});
-			});
-		}
 		contents.push({ role: 'user', parts: parts });
 
 		let geminiOptions: GeminiOptions = {
@@ -649,15 +689,56 @@ export default class extends Module {
 			chatUserId: msg.isChat ? msg.userId : undefined,
 		};
 
+		// friendNameを取得
+		const friend: Friend | null = this.ai.lookupFriend(msg.userId);
+		let friendName: string | undefined;
+		if (friend != null && friend.name != null) {
+			friendName = friend.name;
+		} else if (msg.user.name) {
+			friendName = msg.user.name;
+		} else {
+			friendName = msg.user.username;
+		}
+
 		if (msg.quoteId) {
 			const quotedNote = await this.ai.api('notes/show', { noteId: msg.quoteId }) as any;
-			current.history = [
-				{
-					role: 'user',
-					content:
-						'ユーザーが与えた前情報である、引用された文章: ' + quotedNote.text,
-				},
-			];
+			// 新しい会話の場合はcurrentに直接設定
+			if (exist && (exist as any).memory) {
+				// 既存の会話がある場合はmemoryに追加
+				(exist as any).memory.conversations.push({
+					id: 'quoted',
+					timestamp: Date.now(),
+					userMessage: quotedNote.text,
+					aiResponse: '',
+					context: 'quoted',
+					importance: 7,
+					isActive: true
+				});
+			} else {
+				// 新しい会話の場合はcurrentに設定
+				current.memory = {
+					conversations: [{
+						id: 'quoted',
+						timestamp: Date.now(),
+						userMessage: quotedNote.text,
+						aiResponse: '',
+						context: 'quoted',
+						importance: 7,
+						isActive: true
+					}],
+					userProfile: {
+						name: friendName || 'ユーザー',
+						interests: [],
+						conversationStyle: 'casual',
+						lastInteraction: Date.now()
+					},
+					conversationContext: {
+						currentTopic: '',
+						mood: 'neutral',
+						relationshipLevel: 5
+					}
+				};
+			}
 		}
 
 		const result = await this.handleAiChat(current, msg);
@@ -944,7 +1025,8 @@ export default class extends Module {
 			prompt: prompt,
 			api: GEMINI_API,
 			key: config.geminiApiKey,
-			history: exist.history,
+			history: exist.history, // 後方互換性のため残す
+			memory: exist.memory, // 新しい人間らしい記憶システム
 			friendName: friendName,
 			fromMention: exist.fromMention,
 			grounding: exist.grounding,
@@ -969,21 +1051,38 @@ export default class extends Module {
 		}
 
 		msg.reply(serifs.aichat.post(text, exist.type, msg.isChat)).then((reply) => {
-			if (!exist.history) {
-				exist.history = [];
+			if (!exist.memory) {
+				exist.memory = {
+					conversations: [],
+					userProfile: {
+						name: friendName || 'ユーザー',
+						interests: [],
+						conversationStyle: 'casual',
+						lastInteraction: Date.now()
+					},
+					conversationContext: {
+						currentTopic: '',
+						mood: 'neutral',
+						relationshipLevel: 5
+					}
+				};
 			}
-			exist.history.push({ role: 'user', content: question });
-			exist.history.push({ role: 'model', content: text });
-			if (exist.history.length > 10) {
-				exist.history.shift();
-			}
+
+			// 新しい会話を記憶に追加
+			const newConversation = {
+				id: reply.id,
+				userMessage: question,
+				aiResponse: text
+			};
+
+			exist.memory = this.manageHumanLikeMemory(exist.memory, newConversation);
 
 			const newRecord: AiChatHist = {
 				postId: reply.id,
 				createdAt: Date.now(),
 				type: exist.type,
 				api: aiChat.api,
-				history: exist.history,
+				memory: exist.memory,
 				grounding: exist.grounding,
 				fromMention: exist.fromMention,
 				originalNoteId: exist.postId,
@@ -1027,5 +1126,299 @@ export default class extends Module {
 		if (exist != null) {
 			this.aichatHist.remove(exist);
 		}
+	}
+
+	/**
+	 * 会話履歴の部分忘却機能
+	 * 履歴を削除するのではなく、インデックスのリンクを外して参照できなくする
+	 */
+	@bindThis
+	private forgetHistory(history: any[], forgetCount: number = 3): any[] {
+		if (!history || history.length <= forgetCount) return history;
+
+		// 古い履歴から指定数分を忘却フラグを立てる
+		for (let i = 0; i < forgetCount && i < history.length; i++) {
+			if (history[i]) {
+				history[i].isForgotten = true;
+			}
+		}
+
+		return history;
+	}
+
+	/**
+	 * 忘却された履歴を復元する
+	 */
+	@bindThis
+	private restoreHistory(history: any[]): any[] {
+		if (!history) return history;
+
+		// 忘却フラグを外す
+		history.forEach(item => {
+			if (item && item.isForgotten) {
+				item.isForgotten = false;
+			}
+		});
+
+		return history;
+	}
+
+	/**
+	 * 忘却されていない履歴のみを取得
+	 */
+	@bindThis
+	private getActiveHistory(history: any[]): any[] {
+		if (!history) return [];
+		return history.filter(item => !item.isForgotten);
+	}
+
+	/**
+	 * 履歴の管理（部分忘却を適用）
+	 */
+	@bindThis
+	private manageHistory(history: any[], maxActiveHistory: number = 10): any[] {
+		if (!history) {
+			history = [];
+		}
+
+		// アクティブな履歴の数をチェック
+		const activeHistory = this.getActiveHistory(history);
+		
+		if (activeHistory.length > maxActiveHistory) {
+			// アクティブな履歴が上限を超えた場合、古いものを忘却
+			const forgetCount = activeHistory.length - maxActiveHistory + 2; // 少し余裕を持たせる
+			this.forgetHistory(history, forgetCount);
+		}
+
+		return history;
+	}
+
+	/**
+	 * 人間らしい記憶管理システム
+	 */
+	@bindThis
+	private manageHumanLikeMemory(memory: any, newConversation: any): any {
+		if (!memory) {
+			memory = {
+				conversations: [],
+				userProfile: {
+					name: '',
+					interests: [],
+					conversationStyle: 'casual',
+					lastInteraction: Date.now()
+				},
+				conversationContext: {
+					currentTopic: '',
+					mood: 'neutral',
+					relationshipLevel: 5
+				}
+			};
+		}
+
+		// 新しい会話を追加
+		memory.conversations.push({
+			id: newConversation.id,
+			timestamp: Date.now(),
+			userMessage: newConversation.userMessage,
+			aiResponse: newConversation.aiResponse,
+			context: this.analyzeConversationContext(newConversation.userMessage),
+			importance: this.calculateImportance(newConversation.userMessage),
+			isActive: true
+		});
+
+		// 記憶の整理（重要度と時間に基づく）
+		memory.conversations = this.organizeMemories(memory.conversations);
+		
+		// ユーザープロファイルの更新
+		memory.userProfile.lastInteraction = Date.now();
+		
+		// 会話コンテキストの更新
+		memory.conversationContext.currentTopic = this.extractCurrentTopic(newConversation.userMessage);
+		memory.conversationContext.mood = this.analyzeMood(newConversation.userMessage);
+
+		return memory;
+	}
+
+	/**
+	 * 会話の文脈を分析
+	 */
+	@bindThis
+	private analyzeConversationContext(message: string): string {
+		const context: string[] = [];
+		
+		// 感情分析
+		if (message.includes('😊') || message.includes('嬉しい') || message.includes('楽しい')) {
+			context.push('positive_emotion');
+		}
+		if (message.includes('😢') || message.includes('悲しい') || message.includes('辛い')) {
+			context.push('negative_emotion');
+		}
+		
+		// 話題分析
+		if (message.includes('天気') || message.includes('雨') || message.includes('晴れ')) {
+			context.push('weather');
+		}
+		if (message.includes('仕事') || message.includes('会社') || message.includes('職場')) {
+			context.push('work');
+		}
+		if (message.includes('趣味') || message.includes('好き') || message.includes('興味')) {
+			context.push('hobby');
+		}
+		
+		return context.join(',') || 'general';
+	}
+
+	/**
+	 * メッセージの重要度を計算
+	 */
+	@bindThis
+	private calculateImportance(message: string): number {
+		let importance = 5; // デフォルト重要度
+		
+		// 質問は重要
+		if (message.includes('？') || message.includes('?')) {
+			importance += 2;
+		}
+		
+		// 感情的な内容は重要
+		if (message.includes('嬉しい') || message.includes('悲しい') || message.includes('怒')) {
+			importance += 3;
+		}
+		
+		// 個人的な内容は重要
+		if (message.includes('私') || message.includes('僕') || message.includes('俺')) {
+			importance += 2;
+		}
+		
+		// 長いメッセージは重要
+		if (message.length > 50) {
+			importance += 1;
+		}
+		
+		return Math.min(importance, 10);
+	}
+
+	/**
+	 * 記憶を整理（重要度と時間に基づく）
+	 */
+	@bindThis
+	private organizeMemories(conversations: any[]): any[] {
+		const now = Date.now();
+		const oneDay = 24 * 60 * 60 * 1000;
+		const oneWeek = 7 * oneDay;
+		
+		// 重要度と時間に基づいてアクティブ状態を更新
+		conversations.forEach(conv => {
+			const age = now - conv.timestamp;
+			
+			// 1週間以上前で重要度が低いものは非アクティブ
+			if (age > oneWeek && conv.importance < 6) {
+				conv.isActive = false;
+			}
+			
+			// 1日以上前で重要度が非常に低いものは非アクティブ
+			if (age > oneDay && conv.importance < 4) {
+				conv.isActive = false;
+			}
+		});
+		
+		// アクティブな記憶を最大20個まで保持
+		const activeMemories = conversations.filter(c => c.isActive);
+		if (activeMemories.length > 20) {
+			// 重要度が低いものから削除
+			activeMemories.sort((a, b) => a.importance - b.importance);
+			const toDeactivate = activeMemories.slice(0, activeMemories.length - 20);
+			toDeactivate.forEach(m => m.isActive = false);
+		}
+		
+		return conversations;
+	}
+
+	/**
+	 * 現在の話題を抽出
+	 */
+	@bindThis
+	private extractCurrentTopic(message: string): string {
+		const topics = {
+			'天気': 'weather',
+			'仕事': 'work',
+			'趣味': 'hobby',
+			'家族': 'family',
+			'友達': 'friends',
+			'食べ物': 'food',
+			'映画': 'movie',
+			'音楽': 'music',
+			'ゲーム': 'game',
+			'旅行': 'travel'
+		};
+		
+		for (const [keyword, topic] of Object.entries(topics)) {
+			if (message.includes(keyword)) {
+				return topic;
+			}
+		}
+		
+		return 'general';
+	}
+
+	/**
+	 * メッセージの感情を分析
+	 */
+	@bindThis
+	private analyzeMood(message: string): string {
+		if (message.includes('😊') || message.includes('嬉しい') || message.includes('楽しい')) {
+			return 'happy';
+		}
+		if (message.includes('😢') || message.includes('悲しい') || message.includes('辛い')) {
+			return 'sad';
+		}
+		if (message.includes('😠') || message.includes('怒') || message.includes('イライラ')) {
+			return 'angry';
+		}
+		if (message.includes('😰') || message.includes('不安') || message.includes('心配')) {
+			return 'anxious';
+		}
+		return 'neutral';
+	}
+
+	/**
+	 * 人間らしい文脈を生成
+	 */
+	@bindThis
+	private generateHumanLikeContext(memory: any): string {
+		if (!memory || !memory.conversations) {
+			return '';
+		}
+		
+		const activeMemories = memory.conversations.filter((c: any) => c.isActive);
+		if (activeMemories.length === 0) {
+			return '';
+		}
+		
+		// 最近の会話（最大5個）を自然な文脈として生成
+		const recentMemories = activeMemories
+			.sort((a: any, b: any) => b.timestamp - a.timestamp)
+			.slice(0, 5);
+		
+		let context = '';
+		if (memory.userProfile?.name) {
+			context += `${memory.userProfile.name}さんとの過去の会話を参考にしてください。\n\n`;
+		}
+		
+		context += '過去の会話の流れ：\n';
+		recentMemories.forEach((mem: any, index: number) => {
+			const date = new Date(mem.timestamp).toLocaleDateString('ja-JP');
+			context += `${index + 1}. [${date}] ${mem.userMessage} → ${mem.aiResponse}\n`;
+		});
+		
+		if (memory.conversationContext?.currentTopic && memory.conversationContext.currentTopic !== 'general') {
+			context += `\n現在の話題: ${memory.conversationContext.currentTopic}\n`;
+		}
+		
+		if (memory.conversationContext?.mood && memory.conversationContext.mood !== 'neutral') {
+			context += `相手の気分: ${memory.conversationContext.mood}\n`;
+		}
+		
+		return context;
 	}
 }
