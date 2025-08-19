@@ -709,14 +709,6 @@ export default class extends Module {
 
 			if (exist != null) return false;
 
-			// フォロー関係チェック
-			const relation = await this.ai?.api('users/relation', { userId: msg.userId }) as any;
-			if (relation[0]?.isFollowing !== true) {
-				this.log('The user is not following me:' + msg.userId);
-				msg.reply('あなたはaichatを実行する権限がありません。');
-				return false;
-			}
-
 			this.log('AiChat requested via direct chat');
 
 			// チャットモードでの直接会話開始
@@ -739,14 +731,6 @@ export default class extends Module {
 
 		// ノート投稿の場合はメンションがあれば応答
 		this.log('AiChat requested via mention');
-
-		const relation = await this.ai?.api('users/relation', { userId: msg.userId }) as any;
-
-		if (relation[0]?.isFollowing !== true) {
-			this.log('The user is not following me:' + msg.userId);
-			msg.reply('あなたはaichatを実行する権限がありません。');
-			return false;
-		}
 
 		// 既に返信済みかチェック
 		const exist = this.aichatHist.findOne({ postId: msg.id });
@@ -849,13 +833,6 @@ export default class extends Module {
 
 		if (exist == null) {
 			this.log('conversation context is not found.');
-			return false;
-		}
-
-		const relation = await this.ai.api('users/relation', { userId: msg.userId }) as any;
-		if (relation[0]?.isFollowing !== true) {
-			this.log('The user is not following me: ' + msg.userId);
-			msg.reply('あなたはaichatを実行する権限がありません。');
 			return false;
 		}
 
