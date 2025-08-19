@@ -217,15 +217,20 @@ export default class extends Module {
 	private async loadCustomEmojis() {
 		try {
 			this.log('[aichat]: Loading custom emojis...');
-			const emojisData = await this.ai.api('admin/emoji/list', {
-				limit: 1000
-			}) as any[];
+			// 認証不要のemojis APIを使用
+			const response = await this.ai.api('emojis', {}) as any;
 			
 			this.customEmojis.clear();
-			for (const emoji of emojisData) {
-				this.customEmojis.add(emoji.name);
+			if (response && response.emojis && Array.isArray(response.emojis)) {
+				for (const emoji of response.emojis) {
+					if (emoji.name) {
+						this.customEmojis.add(emoji.name);
+					}
+				}
+				this.log(`[aichat]: Loaded ${this.customEmojis.size} custom emojis`);
+			} else {
+				throw new Error('Invalid emoji data format');
 			}
-			this.log(`[aichat]: Loaded ${this.customEmojis.size} custom emojis`);
 		} catch (error) {
 			this.log(`[aichat]: Failed to load custom emojis: ${error}`);
 			// 権限がない場合は、基本的なカスタム絵文字を追加
@@ -238,7 +243,7 @@ export default class extends Module {
 				'blobcatsweat', 'blobcatneutral_face', 'blobcatexpressionless'
 			];
 			basicCustomEmojis.forEach(emoji => this.customEmojis.add(emoji));
-			this.log(`[aichat]: Using fallback custom emojis: ${basicCustomEmojis.length} emojis`);
+			this.log(`[aichat]: Using fallback custom emojis: ${this.customEmojis.size} emojis`);
 		}
 	}
 
