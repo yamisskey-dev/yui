@@ -729,6 +729,53 @@ export default class extends Module {
 			return false;
 		}
 
+		// リプライが#aichatハッシュタグ付きの投稿に対するものかチェック
+		if (msg.replyId) {
+			try {
+				const repliedNote = await this.ai.api('notes/show', { noteId: msg.replyId }) as any;
+				if (repliedNote && repliedNote.text && repliedNote.text.includes('#aichat')) {
+					this.log('AiChat requested via reply to #aichat note');
+					
+					// 既に返信済みかチェック
+					const exist = this.aichatHist.findOne({ postId: msg.id });
+					if (exist != null) {
+						this.log('Already replied to this note');
+						return false;
+					}
+
+					// 新しい会話を作成（既存の処理をそのまま使用）
+					const current: AiChatHist = {
+						postId: msg.id,
+						createdAt: Date.now(),
+						type: TYPE_GEMINI,
+						fromMention: true,
+						isChat: msg.isChat,
+						chatUserId: msg.isChat ? msg.userId : undefined,
+					};
+
+					// friendNameを取得（既存の処理をそのまま使用）
+					const friend: Friend | null = this.ai.lookupFriend(msg.userId);
+					let friendName: string | undefined;
+					if (friend != null && friend.name != null) {
+						friendName = friend.name;
+					} else if (msg.user.name) {
+						friendName = msg.user.name;
+					} else {
+						friendName = msg.user.username;
+					}
+
+					// 返信投稿を作成（既存の処理をそのまま使用）
+					const result = await this.handleAiChat(current, msg, false);
+					if (result) {
+						return true;
+					}
+					return false;
+				}
+			} catch (error) {
+				this.log('Error checking replied note: ' + error);
+			}
+		}
+
 		// ノート投稿の場合はメンションがあれば応答
 		this.log('AiChat requested via mention');
 
