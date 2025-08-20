@@ -442,6 +442,20 @@ export default {
 		post: (text) => `${text} #aichat`,
 	},
 
+  follow: {
+    success: {
+      follow: (userDisplay) => `✅ ${userDisplay}をフォローしました`,
+      unfollow: (userDisplay) => `✅ ${userDisplay}のフォロー解除しました`,
+    },
+    error: {
+      userNotFound: (userDisplay) =>
+        `⚠️ ユーザー ${userDisplay} が見つかりません`,
+      apiFailed: (userDisplay, action) =>
+        `❌ ${userDisplay}の${action}に失敗しました`,
+      permissionDenied: 'どなたさまですか？',
+    },
+  },
+
 	sleepReport: {
 		report: hours => `んぅ、${hours}時間くらい寝ちゃってたみたいです`,
 		reportUtatane: 'ん... うたた寝しちゃってました',

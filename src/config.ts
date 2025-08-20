@@ -24,6 +24,8 @@ type Config = {
   autoNoteIntervalMinutes?: string;
   geminiAutoNoteProbability?: string;
   autoNoteDisableNightPosting?: string;
+  followAllowedHosts?: string[];
+  followExcludeInstances?: string[];
   mecab?: string;
   mecabDic?: string;
   memoryDir?: string;
