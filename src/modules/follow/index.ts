@@ -129,17 +129,17 @@ export default class extends Module {
     try {
       // ローカルユーザーの場合
       if (!host) {
-        const user = await this.ai.api<UserDetailed>('users/show', {
+        const user = await this.ai.api('users/show', {
           username: username,
-        });
+        }) as UserDetailed;
         return user;
       }
 
       // リモートユーザーの場合
-      const user = await this.ai.api<UserDetailed>('users/show', {
+      const user = await this.ai.api('users/show', {
         username: username,
         host: host,
-      });
+      }) as UserDetailed;
       return user;
     } catch (error) {
       this.log(
@@ -461,14 +461,11 @@ export default class extends Module {
     let untilId: string | undefined = undefined;
 
     while (true) {
-      const responseItems = await this.ai.api<
-        | { id: string; followee: User; follower?: never }[]
-        | { id: string; follower: User; followee?: never }
-      >(endpoint, {
+      const responseItems = await this.ai.api(endpoint, {
         userId: this.ai.account.id,
         limit: 100,
         untilId: untilId,
-      });
+      }) as Array<{ id: string; followee?: User; follower?: User }>;
 
       if (!responseItems || responseItems.length === 0) {
         break;
