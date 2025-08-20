@@ -1125,44 +1125,24 @@ export default class extends Module {
 			return true;
 		}
 
-		// 返信投稿を作成（リアクションは作成しない）
-		this.ai.api('notes/create', {
-			replyId: msg.id,
-			text: msg.isChat ? text : serifs.aichat.post(text),
-			visibility: msg.isChat ? 'specified' : 'public'
-		}).then((reply: any) => {
-			if (!exist.memory) {
-				exist.memory = {
-					conversations: [],
-					userProfile: {
-						name: friendName || 'ユーザー',
-						interests: [],
-						conversationStyle: 'casual',
-						lastInteraction: Date.now()
-					},
-					conversationContext: {
-						currentTopic: '',
-						mood: 'neutral',
-						relationshipLevel: 5
-					}
-				};
+		// msg.reply()を常に使用し、内部で適切なAPIが呼ばれるようにする
+		msg.reply(serifs.aichat.post(text)).then((reply) => {
+			if (!exist.history) {
+				exist.history = [];
 			}
-
-			// 新しい会話を記憶に追加
-			const newConversation = {
-				id: reply.id,
-				userMessage: question,
-				aiResponse: text
-			};
-
-			exist.memory = this.manageHumanLikeMemory(exist.memory, newConversation);
+			exist.history.push({ role: 'user', content: question });
+			exist.history.push({ role: 'model', content: text });
+			if (exist.history.length > 10) { // 履歴の最大長制限
+				exist.history.shift();
+				exist.history.shift();
+			}
 
 			const newRecord: AiChatHist = {
 				postId: reply.id,
 				createdAt: Date.now(),
 				type: exist.type,
 				api: aiChat.api,
-				memory: exist.memory,
+				history: exist.history,
 				grounding: exist.grounding,
 				fromMention: exist.fromMention,
 				originalNoteId: exist.postId,
