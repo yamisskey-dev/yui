@@ -699,13 +699,8 @@ export default class extends Module {
 			return false;
 		}
 
-		// チャットモードの場合は特別処理
+		// チャットモードの場合は従来通りaichatとして扱う
 		if (msg.isChat) {
-			// aichatコマンドが含まれている場合は無視
-			if (msg.includes(['aichat'])) {
-				return false;
-			}
-
 			// 既に会話中かチェック
 			const exist = this.aichatHist.findOne({
 				isChat: true,
@@ -734,52 +729,66 @@ export default class extends Module {
 			return false;
 		}
 
-		// リプライが#aichatハッシュタグ付きの投稿に対するものかチェック
+		// 通常ノートの場合は「aichatトリガー」または「aichatへのリプライ」以外は反応しない
+		// aichatトリガー: #aichat または "aichat" コマンドが含まれている
+		const isAichatTrigger = msg.text && (msg.text.includes('#aichat') || msg.text.includes('aichat'));
+
+		// aichatへのリプライかどうか判定
+		let isReplyToAichat = false;
 		if (msg.replyId) {
 			try {
 				const repliedNote = await this.ai.api('notes/show', { noteId: msg.replyId }) as any;
 				if (repliedNote && repliedNote.text && repliedNote.text.includes('#aichat')) {
-					this.log('AiChat requested via reply to #aichat note');
-					
-					// 既に返信済みかチェック
-					const exist = this.aichatHist.findOne({ postId: msg.id });
-					if (exist != null) {
-						this.log('Already replied to this note');
-						return false;
-					}
-
-					// 新しい会話を作成（既存の処理をそのまま使用）
-					const current: AiChatHist = {
-						postId: msg.id,
-						createdAt: Date.now(),
-						type: TYPE_GEMINI,
-						fromMention: true,
-						isChat: msg.isChat,
-						chatUserId: msg.isChat ? msg.userId : undefined,
-					};
-
-					// friendNameを取得（既存の処理をそのまま使用）
-					const friend: Friend | null = this.ai.lookupFriend(msg.userId);
-					let friendName: string | undefined;
-					if (friend != null && friend.name != null) {
-						friendName = friend.name;
-					} else if (msg.user.name) {
-						friendName = msg.user.name;
-					} else {
-						friendName = msg.user.username;
-					}
-
-					// 返信投稿を作成（既存の処理をそのまま使用）
-					const result = await this.handleAiChat(current, msg, false);
-					if (result) {
-						return true;
-					}
-					return false;
+					isReplyToAichat = true;
 				}
 			} catch (error) {
 				this.log('Error checking replied note: ' + error);
 			}
 		}
+
+		// aichatトリガーまたはaichatへのリプライでなければ他機能に譲る
+		if (!isAichatTrigger && !isReplyToAichat) {
+			return false;
+		}
+
+		// aichatへのリプライ時は従来のaichat返信処理をそのまま使う
+		if (isReplyToAichat) {
+			this.log('AiChat requested via reply to #aichat note');
+			// 既に返信済みかチェック
+			const exist = this.aichatHist.findOne({ postId: msg.id });
+			if (exist != null) {
+				this.log('Already replied to this note');
+				return false;
+			}
+
+			// 新しい会話を作成（既存の処理をそのまま使用）
+			const current: AiChatHist = {
+				postId: msg.id,
+				createdAt: Date.now(),
+				type: TYPE_GEMINI,
+				fromMention: true,
+				isChat: msg.isChat,
+				chatUserId: msg.isChat ? msg.userId : undefined,
+			};
+
+			// friendNameを取得（既存の処理をそのまま使用）
+			const friend: Friend | null = this.ai.lookupFriend(msg.userId);
+			let friendName: string | undefined;
+			if (friend != null && friend.name != null) {
+				friendName = friend.name;
+			} else if (msg.user.name) {
+				friendName = msg.user.name;
+			} else {
+				friendName = msg.user.username;
+			}
+
+			// 返信投稿を作成（既存の処理をそのまま使用）
+			const result = await this.handleAiChat(current, msg, false);
+			if (result) {
+				return true;
+			}
+			return false;
+  	}
 
 		// ノート投稿の場合はメンションがあれば応答
 		this.log('AiChat requested via mention');
