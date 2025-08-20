@@ -699,7 +699,6 @@ export default class extends Module {
 			return false;
 		}
 
-		// チャットモードの場合は従来通りaichatとして扱う
 		if (msg.isChat) {
 			// 既に会話中かチェック
 			const exist = this.aichatHist.findOne({
@@ -710,6 +709,8 @@ export default class extends Module {
 			if (exist != null) return false;
 
 			this.log('AiChat requested via direct chat');
+
+			if (!msg.includes(['aichat', 'AIチャット', 'AI会話', this.name])) return false;
 
 			// チャットモードでの直接会話開始
 			const current: AiChatHist = {
@@ -860,12 +861,31 @@ export default class extends Module {
 		this.log('contextHook... msg.id=' + msg.id + ', text=' + msg.text?.substring(0, 50));
 		if (msg.text == null) return false;
 
-		// チャットモードでaichatコマンドが含まれている場合は無視
+		// チャットモードでaichat終了コマンド
 		if (
 			msg.isChat &&
-			msg.includes(['aichat'])
+			(msg.includes(['aichat 終了']) ||
+				msg.includes(['aichat 終わり']) ||
+				msg.includes(['aichat やめる']) ||
+				msg.includes(['aichat 止めて']))
 		) {
-			// コマンドとして認識された場合は処理しない
+			const exist = this.aichatHist.findOne({ isChat: true, chatUserId: msg.userId });
+			if (exist) {
+				this.aichatHist.remove(exist);
+				this.unsubscribeReply(key);
+				msg.reply('藍チャットを終了しました。また何かあればお声がけくださいね！');
+				return true;
+			}
+			return false;
+		}
+		// チャットモード中のみaichatが応答
+		if (msg.isChat) {
+			const exist = this.aichatHist.findOne({ isChat: true, chatUserId: msg.userId });
+			if (!exist) return false;
+			this.unsubscribeReply(key);
+			this.aichatHist.remove(exist);
+			const result = await this.handleAiChat(exist, msg);
+			if (result) return { reaction: 'like' };
 			return false;
 		}
 
@@ -1202,6 +1222,15 @@ export default class extends Module {
 				userId: msg.userId,
 			});
 		});
+
+		// チャットモードで、かつ最初のメッセージ（履歴が2つしかない）の場合に終了方法を教える
+		if (msg.isChat && exist.history && exist.history.length <= 2) {
+			setTimeout(() => {
+				this.ai.sendMessage(msg.userId, {
+					text: '💡 チャット中に「aichat 終了」「aichat 終わり」「aichat やめる」「aichat 止めて」のいずれかと送信すると会話を終了できます。',
+				});
+			}, 1000); // 少し間を空けて送信
+		}
 		return true;
 	}
 
