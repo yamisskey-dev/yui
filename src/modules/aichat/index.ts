@@ -1127,6 +1127,34 @@ export default class extends Module {
 
 		// msg.reply()を常に使用し、内部で適切なAPIが呼ばれるようにする
 		msg.reply(serifs.aichat.post(text)).then((reply) => {
+			// memoryシステムを使用した記憶管理
+			if (!exist.memory) {
+				exist.memory = {
+					conversations: [],
+					userProfile: {
+						name: friendName || 'ユーザー',
+						interests: [],
+						conversationStyle: 'casual',
+						lastInteraction: Date.now()
+					},
+					conversationContext: {
+						currentTopic: '',
+						mood: 'neutral',
+						relationshipLevel: 5
+					}
+				};
+			}
+
+			// 新しい会話を記憶に追加
+			const newConversation = {
+				id: reply.id,
+				userMessage: question,
+				aiResponse: text
+			};
+
+			exist.memory = this.manageHumanLikeMemory(exist.memory, newConversation);
+
+			// 後方互換性のためhistoryも更新
 			if (!exist.history) {
 				exist.history = [];
 			}
@@ -1142,7 +1170,8 @@ export default class extends Module {
 				createdAt: Date.now(),
 				type: exist.type,
 				api: aiChat.api,
-				history: exist.history,
+				memory: exist.memory, // memoryシステムを使用
+				history: exist.history, // 後方互換性のため残す
 				grounding: exist.grounding,
 				fromMention: exist.fromMention,
 				originalNoteId: exist.postId,
