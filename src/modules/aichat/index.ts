@@ -1082,7 +1082,7 @@ export default class extends Module {
 		}
 
 		if (!config.geminiApiKey) {
-			msg.reply(serifs.aichat.nothing(exist.type));
+			msg.reply(serifs.aichat.nothing);
 			return false;
 		}
 
@@ -1107,7 +1107,7 @@ export default class extends Module {
 			this.log(
 				'The result is invalid. It seems that tokens and other items need to be reviewed.'
 			);
-			msg.reply(serifs.aichat.error(exist.type));
+			msg.reply(serifs.aichat.error);
 			return false;
 		}
 
@@ -1128,7 +1128,7 @@ export default class extends Module {
 		// 返信投稿を作成（リアクションは作成しない）
 		this.ai.api('notes/create', {
 			replyId: msg.id,
-			text: serifs.aichat.post(text, exist.type, msg.isChat),
+			text: msg.isChat ? text : serifs.aichat.post(text),
 			visibility: msg.isChat ? 'specified' : 'public'
 		}).then((reply: any) => {
 			if (!exist.memory) {
