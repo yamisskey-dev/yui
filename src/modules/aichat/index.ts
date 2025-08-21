@@ -290,8 +290,12 @@ export default class extends Module {
 					'neutral_face': '😐',
 					'expressionless': '😑'
 				};
-				
-				return emojiMap[emojiName] || match; // マッピングがない場合は元のまま
+				if (emojiMap[emojiName]) {
+					return emojiMap[emojiName];
+				} else {
+					// ローカルにもemojiMapにもない:emoji:は空文字に
+					return '';
+				}
 			}
 		});
 	}
