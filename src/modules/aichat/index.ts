@@ -1,3 +1,12 @@
+import emojilist from './emojilist.json' with { type: 'json' };
+
+// emojilist.jsonの配列からemojiName→Unicodeのマップを生成
+const emojiMap: { [key: string]: string } = {};
+for (const entry of emojilist) {
+	if (typeof entry[1] === 'string' && typeof entry[0] === 'string') {
+		emojiMap[entry[1]] = entry[0];
+	}
+}
 // Original code from: https://github.com/lqvp/ai
 // Copyright (c) 2025 lqvp
 // Licensed under MIT License
@@ -260,42 +269,12 @@ export default class extends Module {
 			if (this.isCustomEmoji(emojiName)) {
 				// カスタム絵文字の場合はそのまま返す（投稿後にMisskeyが自動変換）
 				return match;
+			} else if (emojiMap[emojiName]) {
+				// emojiMapにあればUnicodeに変換
+				return emojiMap[emojiName];
 			} else {
-				// 通常の絵文字の場合は、Unicode絵文字に変換
-				// これらはエディターで即座に絵文字に変換されるタイプ
-				const emojiMap: { [key: string]: string } = {
-					'smile': '😊',
-					'heart': '❤️',
-					'cry': '😢',
-					'angry': '😠',
-					'thinking': '🤔',
-					'blush': '😊',
-					'wink': '😉',
-					'ok_hand': '👌',
-					'thumbsup': '👍',
-					'clap': '👏',
-					'tada': '🎉',
-					'sparkles': '✨',
-					'star': '⭐',
-					'rainbow': '🌈',
-					'sunny': '☀️',
-					'broken_heart': '💔',
-					'disappointed': '😞',
-					'rage': '😡',
-					'punch': '👊',
-					'fearful': '😨',
-					'worried': '😟',
-					'cold_sweat': '😰',
-					'sweat': '😅',
-					'neutral_face': '😐',
-					'expressionless': '😑'
-				};
-				if (emojiMap[emojiName]) {
-					return emojiMap[emojiName];
-				} else {
-					// ローカルにもemojiMapにもない:emoji:は空文字に
-					return '';
-				}
+				// どちらにもなければ空文字
+				return '';
 			}
 		});
 	}
