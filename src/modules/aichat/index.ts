@@ -265,17 +265,15 @@ export default class extends Module {
 	private processEmojis(text: string): string {
 		// :emoji:形式の絵文字を検出
 		const emojiRegex = /:([a-zA-Z0-9_]+):/g;
-		return text.replace(emojiRegex, (match, emojiName) => {
-			if (this.isCustomEmoji(emojiName)) {
-				// カスタム絵文字の場合はそのまま返す（投稿後にMisskeyが自動変換）
-				return match;
-			} else if (emojiMap[emojiName]) {
-				// emojiMapにあればUnicodeに変換
-				return emojiMap[emojiName];
-			} else {
-				// どちらにもなければ空文字
-				return '';
-			}
+		return text.replace(/:([^:]+):/g, (match, name) => {
+			// 英数字・アンダースコア以外の名前は除外
+			if (!/^[a-zA-Z0-9_]+$/.test(name)) return '';
+			// カスタム絵文字ならそのまま
+			if (this.customEmojis.has(name)) return match;
+			// fluent絵文字ならUnicodeに変換
+			if (emojiMap[name]) return emojiMap[name];
+			// それ以外は空文字
+			return '';
 		});
 	}
 
