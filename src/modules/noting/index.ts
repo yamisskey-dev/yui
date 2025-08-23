@@ -280,7 +280,7 @@ export default class extends Module {
 			this.log(`[noting] Gemini生成note: ${geminiNote}`);
 
 				// 投稿前に:emoji:→Unicode/カスタム絵文字変換
-				const customEmojis = new Set((await fetchEmojis()).map(e => e.name));
+				const customEmojis = await loadCustomEmojis(this.ai.api.bind(this.ai), this.log.bind(this));
 				const processedNote = processEmojis(geminiNote, customEmojis);
 			try {
 				await this.ai.post({
