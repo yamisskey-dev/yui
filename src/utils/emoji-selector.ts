@@ -209,6 +209,13 @@ export async function loadCustomEmojis(
 	log?: (msg: string) => void
 ): Promise<Set<string>> {
 	const customEmojis = new Set<string>();
+	const basicCustomEmojis = [
+		'blobsmile', 'blobsob', 'ablob_sadrain', '09neko', 'blobcatno',
+		'blobcatyes', 'blobcatthink', 'blobcatcry', 'blobcatangry',
+		'blobcatlove', 'blobcatwink', 'blobcatblush', 'blobcatpunch',
+		'blobcatfearful', 'blobcatworried', 'blobcatcold_sweat',
+		'blobcatsweat', 'blobcatneutral_face', 'blobcatexpressionless'
+	];
 	try {
 		if (log) log('[emoji-selector]: Loading custom emojis...');
 		const response = await aiApi('emojis', {}) as any;
@@ -218,19 +225,14 @@ export async function loadCustomEmojis(
 					customEmojis.add(emoji.name);
 				}
 			}
-			if (log) log(`[emoji-selector]: Loaded ${customEmojis.size} custom emojis`);
+			// API取得成功時もbasicCustomEmojisを必ず追加
+			basicCustomEmojis.forEach(emoji => customEmojis.add(emoji));
+			if (log) log(`[emoji-selector]: Loaded ${customEmojis.size} custom emojis (including basicCustomEmojis)`);
 		} else {
 			throw new Error('Invalid emoji data format');
 		}
 	} catch (error) {
 		if (log) log(`[emoji-selector]: Failed to load custom emojis: ${error}`);
-		const basicCustomEmojis = [
-			'blobsmile', 'blobsob', 'ablob_sadrain', '09neko', 'blobcatno',
-			'blobcatyes', 'blobcatthink', 'blobcatcry', 'blobcatangry',
-			'blobcatlove', 'blobcatwink', 'blobcatblush', 'blobcatpunch',
-			'blobcatfearful', 'blobcatworried', 'blobcatcold_sweat',
-			'blobcatsweat', 'blobcatneutral_face', 'blobcatexpressionless'
-		];
 		basicCustomEmojis.forEach(emoji => customEmojis.add(emoji));
 		if (log) log(`[emoji-selector]: Using fallback custom emojis: ${customEmojis.size} emojis`);
 	}
