@@ -6,6 +6,7 @@ import config from '@/config.js';
 import axios from 'axios';
 import { weather_phrases } from '@/serifs.js';
 import got from 'got';
+import { processEmojis, loadCustomEmojis } from '@/utils/emoji-selector.js';
 import { getEmojiListForAI, selectEmoji, fetchEmojis, emojiMapping } from '@/utils/emoji-selector.js';
 
 export default class extends Module {
@@ -278,9 +279,12 @@ export default class extends Module {
 
 			this.log(`[noting] Gemini生成note: ${geminiNote}`);
 
+				// 投稿前に:emoji:→Unicode/カスタム絵文字変換
+				const customEmojis = new Set((await fetchEmojis()).map(e => e.name));
+				const processedNote = processEmojis(geminiNote, customEmojis);
 			try {
 				await this.ai.post({
-					text: geminiNote
+					text: processedNote
 				});
 				this.log('[noting] note投稿成功');
 			} catch (e) {
