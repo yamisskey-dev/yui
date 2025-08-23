@@ -265,8 +265,11 @@ export function isCustomEmoji(emojiName: string, customEmojis: Set<string>): boo
 export function processEmojis(text: string, customEmojis: Set<string>): string {
 	return text.replace(/:([^:]+):/g, (match, name) => {
 		if (!/^[a-zA-Z0-9_]+$/.test(name)) return '';
+		// Misskey APIで取得できたカスタム絵文字名は必ず通す
 		if (customEmojis.has(name)) return match;
+		// Unicode変換できるものは変換
 		if (emojiMap[name]) return emojiMap[name];
+		// それ以外は空文字
 		return '';
 	});
 }
