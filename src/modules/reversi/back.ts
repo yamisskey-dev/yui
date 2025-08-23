@@ -116,9 +116,9 @@ class Session {
 		}
 
 		// TLに投稿する
-		this.postGameStarted().then(note => {
-			this.startedNote = note;
-		});
+		// this.postGameStarted().then(note => {
+		// 	this.startedNote = note;
+		// });
 
 		// リバーシエンジン初期化
 		this.engine = new Reversi.Game(this.game.map, {
@@ -244,7 +244,7 @@ class Session {
 			}
 		}
 
-		await this.post(text, this.startedNote);
+		// await this.post(text, this.startedNote);
 
 		process.exit();
 	}
