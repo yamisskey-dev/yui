@@ -1,12 +1,3 @@
-import emojilist from './emojilist.json' with { type: 'json' };
-
-// emojilist.jsonの配列からemojiName→Unicodeのマップを生成
-const emojiMap: { [key: string]: string } = {};
-for (const entry of emojilist) {
-	if (typeof entry[1] === 'string' && typeof entry[0] === 'string') {
-		emojiMap[entry[1]] = entry[0];
-	}
-}
 // Original code from: https://github.com/lqvp/ai
 // Copyright (c) 2025 lqvp
 // Licensed under MIT License
@@ -21,6 +12,7 @@ import urlToBase64 from '@/utils/url2base64.js';
 import urlToJson from '@/utils/url2json.js';
 import got from 'got';
 import loki from 'lokijs';
+import { loadCustomEmojis, processEmojis } from '@/utils/emoji-processor.js';
 
 type AiChat = {
 	question: string;
@@ -204,7 +196,9 @@ export default class extends Module {
 		}
 
 		// カスタム絵文字の情報を取得
-		this.loadCustomEmojis();
+		loadCustomEmojis(this.ai.api.bind(this.ai), this.log.bind(this)).then(set => {
+			this.customEmojis = set;
+		});
 
 		return {
 			mentionHook: this.mentionHook,
@@ -220,61 +214,6 @@ export default class extends Module {
 			url.includes('m.youtube.com') ||
 			url.includes('youtu.be')
 		);
-	}
-
-	@bindThis
-	private async loadCustomEmojis() {
-		try {
-			this.log('[aichat]: Loading custom emojis...');
-			// 認証不要のemojis APIを使用
-			const response = await this.ai.api('emojis', {}) as any;
-			
-			this.customEmojis.clear();
-			if (response && response.emojis && Array.isArray(response.emojis)) {
-				for (const emoji of response.emojis) {
-					if (emoji.name) {
-						this.customEmojis.add(emoji.name);
-					}
-				}
-				this.log(`[aichat]: Loaded ${this.customEmojis.size} custom emojis`);
-			} else {
-				throw new Error('Invalid emoji data format');
-			}
-		} catch (error) {
-			this.log(`[aichat]: Failed to load custom emojis: ${error}`);
-			// 権限がない場合は、基本的なカスタム絵文字を追加
-			// これらは投稿後に絵文字に変換されるタイプ
-			const basicCustomEmojis = [
-				'blobsmile', 'blobsob', 'ablob_sadrain', '09neko', 'blobcatno',
-				'blobcatyes', 'blobcatthink', 'blobcatcry', 'blobcatangry',
-				'blobcatlove', 'blobcatwink', 'blobcatblush', 'blobcatpunch',
-				'blobcatfearful', 'blobcatworried', 'blobcatcold_sweat',
-				'blobcatsweat', 'blobcatneutral_face', 'blobcatexpressionless'
-			];
-			basicCustomEmojis.forEach(emoji => this.customEmojis.add(emoji));
-			this.log(`[aichat]: Using fallback custom emojis: ${this.customEmojis.size} emojis`);
-		}
-	}
-
-	@bindThis
-	private isCustomEmoji(emojiName: string): boolean {
-		return this.customEmojis.has(emojiName);
-	}
-
-	@bindThis
-	private processEmojis(text: string): string {
-		// :emoji:形式の絵文字を検出
-		const emojiRegex = /:([a-zA-Z0-9_]+):/g;
-		return text.replace(/:([^:]+):/g, (match, name) => {
-			// 英数字・アンダースコア以外の名前は除外
-			if (!/^[a-zA-Z0-9_]+$/.test(name)) return '';
-			// カスタム絵文字ならそのまま
-			if (this.customEmojis.has(name)) return match;
-			// fluent絵文字ならUnicodeに変換
-			if (emojiMap[name]) return emojiMap[name];
-			// それ以外は空文字
-			return '';
-		});
 	}
 
 	@bindThis
@@ -1122,7 +1061,7 @@ export default class extends Module {
 		}
 
 		// 絵文字処理を適用
-		text = this.processEmojis(text);
+		text = processEmojis(text, this.customEmojis);
 
 		// handleAiChat内で、msg.isChatがtrueの場合はtext末尾の (gemini) #aichat などを除去
 		if (msg.isChat && typeof text === 'string') {
@@ -1169,7 +1108,7 @@ export default class extends Module {
 				exist.history = [];
 			}
 			exist.history.push({ role: 'user', content: question });
-			exist.history.push({ role: 'model', content: text });
+			exist.history.push({ role: 'model', content: text ?? '' });
 			if (exist.history.length > 10) { // 履歴の最大長制限
 				exist.history.shift();
 				exist.history.shift();
