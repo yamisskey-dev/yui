@@ -12,7 +12,7 @@ import urlToBase64 from '@/utils/url2base64.js';
 import urlToJson from '@/utils/url2json.js';
 import got from 'got';
 import loki from 'lokijs';
-import { loadCustomEmojis, processEmojis } from '@/utils/emoji-processor.js';
+import { loadCustomEmojis, processEmojis } from '@/utils/emoji-selector.js';
 
 type AiChat = {
 	question: string;
