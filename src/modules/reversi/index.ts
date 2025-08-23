@@ -98,7 +98,7 @@ export default class extends Module {
 		if (msg.includes(['中'])) return 3;
 		if (msg.includes(['強']) && !msg.includes(['最強'])) return 4;
 		if (msg.includes(['最強'])) return 5;
-		return 4; // デフォルト値
+		return 2; // デフォルト値
 	}
 
 	/**
@@ -140,16 +140,16 @@ export default class extends Module {
 		const opponentId = game.user1Id !== this.ai.account.id ? game.user1Id : game.user2Id;
 		
 		// 1. 一時保存から難易度を取得（コマンドで直接指定された場合）
-		let strength = 4;
+		let strength = 2;
 		if (this.pendingGames && this.pendingGames.has(opponentId)) {
-			strength = this.pendingGames.get(opponentId) ?? 4;
+			strength = this.pendingGames.get(opponentId) ?? 2;
 			this.pendingGames.delete(opponentId);
 		} 
 		// 2. 一時保存になければフレンド情報から取得
 		else {
 			const friend = this.ai.lookupFriend(opponentId);
 			if (friend != null) {
-				strength = friend.doc.reversiStrength ?? 4;
+				strength = friend.doc.reversiStrength ?? 2;
 				friend.updateReversiStrength(null);
 			}
 		}
