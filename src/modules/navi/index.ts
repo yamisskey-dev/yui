@@ -404,6 +404,50 @@ export default class extends Module {
                 return true;
             }
 
+            // カスタムプロンプト作成コマンド
+            // カスタムプロンプト作成コマンド（profileコマンドと同様の仕組み）
+            const createMatch = text.match(/(?:\/custom create|custom create)\s+(.+)/);
+            if (createMatch || text.toLowerCase().includes('create')) {
+                if (createMatch) {
+                    const fullPromptText = createMatch[1].trim();
+                    
+                    // ダブルクォートで囲まれている場合は除去
+                    const promptText = fullPromptText.startsWith('"') && fullPromptText.endsWith('"')
+                        ? fullPromptText.slice(1, -1)
+                        : fullPromptText;
+                    
+                    this.log(`[DEBUG] Custom prompt create (profile-style):
+                        - Full text: ${text}
+                        - Extracted prompt: ${promptText}
+                        - Length: ${promptText.length}`);
+                    
+                    if (promptText.length === 0) {
+                        msg.reply('❌ プロンプトの内容を入力してください。\n例: `navi /custom create あなたは優しい先生です。丁寧に教えてください。`');
+                        return true;
+                    }
+                    
+                    // プロンプトの最初の部分から自動で名前を生成
+                    const autoName = promptText.substring(0, 20) + (promptText.length > 20 ? '...' : '');
+                    
+                    try {
+                        await this.createCustomPrompt(msg.userId, autoName, promptText, 'カスタムプロンプト', ['custom']);
+                        msg.reply(`✅ カスタムプロンプト「${autoName}」を作成しました。\n使用方法: \`navi /custom list\` で確認後、\`navi /custom set <番号>\` で設定してください。\n\n📝 プロンプト内容 (${promptText.length}文字):\n${promptText.length > 100 ? promptText.substring(0, 100) + '...' : promptText}`);
+                    } catch (error) {
+                        this.log(`[ERROR] Custom prompt creation failed: ${error}`);
+                        msg.reply('❌ カスタムプロンプトの作成に失敗しました。');
+                    }
+                } else {
+                    // 使用方法を表示
+                    const createHelp = `📝 **カスタムプロンプト作成方法:**\n\n` +
+                        `\`navi /custom create プロンプト内容\`\n\n` +
+                        `**例:**\n` +
+                        `\`navi /custom create あなたは優しい先生です。分からないことがあったら丁寧に教えてください。\`\n\n` +
+                        `ダブルクォートありでも、なしでも両方対応しています！`;
+                    msg.reply(createHelp);
+                }
+                return true;
+            }
+
         } catch (error) {
             this.log(`Custom prompt command error: ${error}`);
             msg.reply('カスタムプロンプト管理でエラーが発生しました。');
@@ -479,6 +523,7 @@ export default class extends Module {
             `• \`navi /prompt reset\` - プロンプト設定をリセット\n\n` +
             `**📝 カスタムプロンプト:**\n` +
             `• \`navi /custom list\` - カスタムプロンプト一覧\n` +
+            `• \`navi /custom create\` - カスタムプロンプト作成\n` +
             `• \`navi /custom set <番号>\` - カスタムプロンプト設定\n\n` +
             `**📊 セッション管理:**\n` +
             `• \`navi /session status\` - 現在のセッション状況\n` +
@@ -641,6 +686,21 @@ export default class extends Module {
             this.log(`Failed to list custom prompts: ${error}`);
             return [];
         }
+    }
+
+    @bindThis
+    private async createCustomPrompt(userId: string, name: string, promptText: string, description: string = '', tags: string[] = []): Promise<void> {
+        const requestBody = {
+            name,
+            prompt_text: promptText,
+            description,
+            tags
+        };
+
+        await got.post(`${this.naviApiUrl}/custom-prompts`, {
+            searchParams: { user_id: userId },
+            json: requestBody
+        });
     }
 
     @bindThis
