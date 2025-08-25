@@ -163,18 +163,11 @@ export default class extends Module {
                     // 通常のカウンセリング応答
                     let replyText = response.response;
                     
-                    // フォローアップ質問がある場合は追加
-                    if (response.follow_up_questions.length > 0) {
-                        replyText += '\n\n💭 **よろしければ教えてください：**\n';
-                        response.follow_up_questions.forEach((question, index) => {
-                            replyText += `${index + 1}. ${question}\n`;
-                        });
-                    }
+                    // フォローアップ質問の表示を削除（ユーザーエクスペリエンス向上）
+                    // より自然な会話体験のため、追加質問は表示しない
                     
-                    // 感情分析結果の簡易表示（デバッグ用・必要に応じて削除）
-                    if ((config as any).naviDebugMode) {
-                        replyText += `\n\n[分析: ${response.emotion_analysis.primary_emotion}(${response.emotion_analysis.intensity}), タイプ: ${response.advice_type}]`;
-                    }
+                    // 感情分析結果の表示は削除（ユーザーエクスペリエンス向上）
+                    // デバッグが必要な場合はサーバーログを確認
                     
                     msg.reply(replyText);
                 }
@@ -251,12 +244,7 @@ export default class extends Module {
                 } else {
                     let replyText = response.response;
                     
-                    if (response.follow_up_questions.length > 0) {
-                        replyText += '\n\n💭 **さらに詳しく教えてください：**\n';
-                        response.follow_up_questions.slice(0, 2).forEach((question, index) => {
-                            replyText += `・${question}\n`;
-                        });
-                    }
+                    // フォローアップ質問の表示を削除（継続会話でも不要）
                     
                     msg.reply(replyText);
                 }
