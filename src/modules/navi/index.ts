@@ -33,18 +33,14 @@ type NaviRequest = {
     prompt_id?: string;
 };
 
-// カスタムプロンプト型定義
+// カスタムプロンプト型定義（簡略化）
 type CustomPrompt = {
-    id: string;
     name: string;
     prompt_text: string;
     description: string;
     tags: string[];
-    user_id: string;
     created_at: string;
     updated_at: string;
-    usage_count: number;
-    is_active: boolean;
 };
 
 // NAVI.mdプロンプト型定義
@@ -62,7 +58,7 @@ export default class extends Module {
     
     private naviApiUrl: string;
     private userSessions: Map<string, string> = new Map(); // userId -> sessionId
-    private userPreferences: Map<string, { promptId?: string; customPromptId?: string }> = new Map(); // ユーザー設定
+    private userPreferences: Map<string, { promptId?: string }> = new Map(); // ユーザー設定（customPromptIdは削除）
     private persistentStorage: Map<string, any> = new Map(); // 永続化ストレージ
 
     @bindThis
@@ -341,7 +337,6 @@ export default class extends Module {
                 const promptId = setMatch[1];
                 const userPref = this.userPreferences.get(msg.userId) || {};
                 userPref.promptId = promptId;
-                userPref.customPromptId = undefined; // カスタムプロンプトをクリア
                 this.userPreferences.set(msg.userId, userPref);
                 this.savePersistentSettings(); // 設定を永続化
                 msg.reply(`✅ プロンプトを「${promptId}」に設定しました。次回の相談から適用されます。`);
@@ -371,35 +366,29 @@ export default class extends Module {
 
         try {
             if (text.toLowerCase().includes('list') || text.includes('一覧')) {
-                const prompts = await this.listCustomPrompts(msg.userId);
-                if (prompts.length > 0) {
+                const prompt = await this.getCustomPrompt(msg.userId);
+                if (prompt) {
                     let response = '📝 **あなたのカスタムプロンプト:**\n\n';
-                    prompts.forEach((prompt, index) => {
-                        response += `${index + 1}. **${prompt.name}**\n`;
-                        response += `   ${prompt.description}\n`;
-                        response += `   使用回数: ${prompt.usage_count}回\n\n`;
-                    });
-                    response += '使用方法: `navi /custom set <番号>`';
+                    response += `**${prompt.name}**\n`;
+                    response += `${prompt.description}\n\n`;
+                    response += `📝 プロンプト内容 (${prompt.prompt_text.length}文字):\n`;
+                    response += `${prompt.prompt_text.length > 100 ? prompt.prompt_text.substring(0, 100) + '...' : prompt.prompt_text}\n\n`;
+                    response += '✅ 次回の相談から自動的に適用されます！\n';
+                    response += '削除するには: `navi /custom delete`';
                     msg.reply(response);
                 } else {
-                    msg.reply('カスタムプロンプトがありません。作成するには `navi /custom create` を使用してください。');
+                    msg.reply('カスタムプロンプトがありません。作成するには `navi /custom create <プロンプト内容>` を使用してください。');
                 }
                 return true;
             }
 
-            const setMatch = text.match(/set\s+(\d+)/);
-            if (setMatch) {
-                const index = parseInt(setMatch[1]) - 1;
-                const prompts = await this.listCustomPrompts(msg.userId);
-                if (index >= 0 && index < prompts.length) {
-                    const userPref = this.userPreferences.get(msg.userId) || {};
-                    userPref.customPromptId = prompts[index].id;
-                    userPref.promptId = undefined; // プロンプトIDをクリア
-                    this.userPreferences.set(msg.userId, userPref);
-                    this.savePersistentSettings(); // 設定を永続化
-                    msg.reply(`✅ カスタムプロンプト「${prompts[index].name}」を設定しました。`);
-                } else {
-                    msg.reply('❌ 指定されたカスタムプロンプトが見つかりません。');
+            if (text.toLowerCase().includes('delete') || text.includes('削除')) {
+                try {
+                    await this.deleteCustomPrompt(msg.userId);
+                    msg.reply('✅ カスタムプロンプトを削除しました。次回からデフォルトプロンプトを使用します。');
+                } catch (error) {
+                    this.log(`[ERROR] Custom prompt deletion failed: ${error}`);
+                    msg.reply('❌ カスタムプロンプトの削除に失敗しました。');
                 }
                 return true;
             }
@@ -431,7 +420,7 @@ export default class extends Module {
                     
                     try {
                         await this.createCustomPrompt(msg.userId, autoName, promptText, 'カスタムプロンプト', ['custom']);
-                        msg.reply(`✅ カスタムプロンプト「${autoName}」を作成しました。\n使用方法: \`navi /custom list\` で確認後、\`navi /custom set <番号>\` で設定してください。\n\n📝 プロンプト内容 (${promptText.length}文字):\n${promptText.length > 100 ? promptText.substring(0, 100) + '...' : promptText}`);
+                        msg.reply(`✅ カスタムプロンプト「${autoName}」を作成しました！\n\n✨ **次回の相談から自動的に適用されます**\n設定不要で、すぐにご利用いただけます。\n\n📝 プロンプト内容 (${promptText.length}文字):\n${promptText.length > 100 ? promptText.substring(0, 100) + '...' : promptText}\n\n確認: \`navi /custom list\`\n削除: \`navi /custom delete\``);
                     } catch (error) {
                         this.log(`[ERROR] Custom prompt creation failed: ${error}`);
                         msg.reply('❌ カスタムプロンプトの作成に失敗しました。');
@@ -442,6 +431,7 @@ export default class extends Module {
                         `\`navi /custom create プロンプト内容\`\n\n` +
                         `**例:**\n` +
                         `\`navi /custom create あなたは優しい先生です。分からないことがあったら丁寧に教えてください。\`\n\n` +
+                        `✨ **作成後すぐに自動適用！** 設定不要でご利用いただけます。\n` +
                         `ダブルクォートありでも、なしでも両方対応しています！`;
                     msg.reply(createHelp);
                 }
@@ -522,9 +512,9 @@ export default class extends Module {
             `• \`navi /prompt set <ID>\` - プロンプトを設定\n` +
             `• \`navi /prompt reset\` - プロンプト設定をリセット\n\n` +
             `**📝 カスタムプロンプト:**\n` +
-            `• \`navi /custom list\` - カスタムプロンプト一覧\n` +
-            `• \`navi /custom create\` - カスタムプロンプト作成\n` +
-            `• \`navi /custom set <番号>\` - カスタムプロンプト設定\n\n` +
+            `• \`navi /custom list\` - カスタムプロンプト表示\n` +
+            `• \`navi /custom create\` - カスタムプロンプト作成（自動適用）\n` +
+            `• \`navi /custom delete\` - カスタムプロンプト削除\n\n` +
             `**📊 セッション管理:**\n` +
             `• \`navi /session status\` - 現在のセッション状況\n` +
             `• \`navi /session summary\` - 相談履歴サマリー\n` +
@@ -676,16 +666,26 @@ export default class extends Module {
     }
 
     @bindThis
-    private async listCustomPrompts(userId: string): Promise<CustomPrompt[]> {
+    private async getCustomPrompt(userId: string): Promise<CustomPrompt | null> {
         try {
             const response = await got.get(`${this.naviApiUrl}/custom-prompts`, {
                 searchParams: { user_id: userId }
-            }).json() as { prompts: CustomPrompt[] };
-            return response.prompts || [];
-        } catch (error) {
-            this.log(`Failed to list custom prompts: ${error}`);
-            return [];
+            }).json() as CustomPrompt;
+            return response;
+        } catch (error: any) {
+            if (error?.response?.statusCode === 404) {
+                return null; // プロンプトなし
+            }
+            this.log(`Failed to get custom prompt: ${error}`);
+            return null;
         }
+    }
+
+    @bindThis
+    private async deleteCustomPrompt(userId: string): Promise<void> {
+        await got.delete(`${this.naviApiUrl}/custom-prompts`, {
+            searchParams: { user_id: userId }
+        });
     }
 
     @bindThis
@@ -720,10 +720,8 @@ export default class extends Module {
                 }
             };
 
-            // プロンプト設定を適用
-            if (userPref?.customPromptId) {
-                requestBody.custom_prompt_id = userPref.customPromptId;
-            } else if (userPref?.promptId) {
+            // プロンプト設定を適用（カスタムプロンプトは自動適用されるためcustom_prompt_idは送信不要）
+            if (userPref?.promptId) {
                 requestBody.prompt_id = userPref.promptId;
             }
 
@@ -826,8 +824,8 @@ export default class extends Module {
                 `**全体の状況:**\n` +
                 `• アクティブユーザー数: ${activeSessionsCount}人\n\n` +
                 `**あなたの設定:**\n` +
-                `• 使用プロンプト: ${userPref?.promptId || userPref?.customPromptId || 'デフォルト'}\n` +
-                `• プロンプトタイプ: ${userPref?.customPromptId ? 'カスタム' : userPref?.promptId ? 'NAVI.md' : 'デフォルト'}`;
+                `• 設定プロンプト: ${userPref?.promptId || 'なし'}\n` +
+                `• プロンプトタイプ: ${userPref?.promptId ? 'NAVI.md' : 'デフォルト（カスタムがあれば自動適用）'}`;
             
             msg.reply(statusText);
             return true;
