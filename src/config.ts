@@ -36,7 +36,10 @@ type Config = {
 
 import config from '../config.json' with { type: 'json' };
 
-(config as any).wsUrl = config.host.replace('http', 'ws');
-(config as any).apiUrl = config.host + '/api';
+const processedConfig = {
+  ...config,
+  wsUrl: config.host.replace('http', 'ws'),
+  apiUrl: config.host + '/api'
+};
 
-export default config as Config;
+export default processedConfig as Config;
