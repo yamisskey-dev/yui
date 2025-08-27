@@ -365,23 +365,6 @@ export default class extends Module {
         const text = msg.text!;
 
         try {
-            if (text.toLowerCase().includes('list') || text.includes('一覧')) {
-                const prompt = await this.getCustomPrompt(msg.userId);
-                if (prompt) {
-                    let response = '📝 **あなたのカスタムプロンプト:**\n\n';
-                    response += `**${prompt.name}**\n`;
-                    response += `${prompt.description}\n\n`;
-                    response += `📝 プロンプト内容 (${prompt.prompt_text.length}文字):\n`;
-                    response += `${prompt.prompt_text.length > 100 ? prompt.prompt_text.substring(0, 100) + '...' : prompt.prompt_text}\n\n`;
-                    response += '✅ 次回の相談から自動的に適用されます！\n';
-                    response += '削除するには: `navi /custom delete`';
-                    msg.reply(response);
-                } else {
-                    msg.reply('カスタムプロンプトがありません。作成するには `navi /custom create <プロンプト内容>` を使用してください。');
-                }
-                return true;
-            }
-
             if (text.toLowerCase().includes('delete') || text.includes('削除')) {
                 try {
                     await this.deleteCustomPrompt(msg.userId);
@@ -394,7 +377,6 @@ export default class extends Module {
             }
 
             // カスタムプロンプト作成コマンド
-            // カスタムプロンプト作成コマンド（profileコマンドと同様の仕組み）
             const createMatch = text.match(/(?:\/custom create|custom create)\s+(.+)/);
             if (createMatch || text.toLowerCase().includes('create')) {
                 if (createMatch) {
@@ -405,7 +387,7 @@ export default class extends Module {
                         ? fullPromptText.slice(1, -1)
                         : fullPromptText;
                     
-                    this.log(`[DEBUG] Custom prompt create (profile-style):
+                    this.log(`[DEBUG] Custom prompt create:
                         - Full text: ${text}
                         - Extracted prompt: ${promptText}
                         - Length: ${promptText.length}`);
@@ -420,19 +402,26 @@ export default class extends Module {
                     
                     try {
                         await this.createCustomPrompt(msg.userId, autoName, promptText, 'カスタムプロンプト', ['custom']);
-                        msg.reply(`✅ カスタムプロンプト「${autoName}」を作成しました！\n\n✨ **次回の相談から自動的に適用されます**\n設定不要で、すぐにご利用いただけます。\n\n📝 プロンプト内容 (${promptText.length}文字):\n${promptText.length > 100 ? promptText.substring(0, 100) + '...' : promptText}\n\n確認: \`navi /custom list\`\n削除: \`navi /custom delete\``);
+                        
+                        // 現在のプロンプトが設定されたか確認
+                        const currentPrompt = await this.getCustomPrompt(msg.userId);
+                        const hasPrompt = currentPrompt && currentPrompt.has_custom_prompt;
+                        
+                        msg.reply(`✅ カスタムプロンプト「${autoName}」を${hasPrompt ? '更新' : '作成'}しました！\n\n✨ **次回の相談から自動的に適用されます**\n\n📝 プロンプト内容 (${promptText.length}文字):\n${promptText.length > 100 ? promptText.substring(0, 100) + '...' : promptText}\n\n削除: \`navi /custom delete\``);
                     } catch (error) {
                         this.log(`[ERROR] Custom prompt creation failed: ${error}`);
                         msg.reply('❌ カスタムプロンプトの作成に失敗しました。');
                     }
                 } else {
                     // 使用方法を表示
-                    const createHelp = `📝 **カスタムプロンプト作成方法:**\n\n` +
+                    const createHelp = `📝 **カスタムプロンプト管理:**\n\n` +
+                        `**作成・更新:**\n` +
                         `\`navi /custom create プロンプト内容\`\n\n` +
+                        `**削除:**\n` +
+                        `\`navi /custom delete\`\n\n` +
                         `**例:**\n` +
                         `\`navi /custom create あなたは優しい先生です。分からないことがあったら丁寧に教えてください。\`\n\n` +
-                        `✨ **作成後すぐに自動適用！** 設定不要でご利用いただけます。\n` +
-                        `ダブルクォートありでも、なしでも両方対応しています！`;
+                        `✨ カスタムプロンプトは1つのみ保存され、作成後すぐに自動適用されます。`;
                     msg.reply(createHelp);
                 }
                 return true;
@@ -512,8 +501,7 @@ export default class extends Module {
             `• \`navi /prompt set <ID>\` - プロンプトを設定\n` +
             `• \`navi /prompt reset\` - プロンプト設定をリセット\n\n` +
             `**📝 カスタムプロンプト:**\n` +
-            `• \`navi /custom list\` - カスタムプロンプト表示\n` +
-            `• \`navi /custom create\` - カスタムプロンプト作成（自動適用）\n` +
+            `• \`navi /custom create\` - カスタムプロンプト作成・更新（自動適用）\n` +
             `• \`navi /custom delete\` - カスタムプロンプト削除\n\n` +
             `**📊 セッション管理:**\n` +
             `• \`navi /session status\` - 現在のセッション状況\n` +
@@ -541,7 +529,7 @@ export default class extends Module {
     @bindThis
     private async listNaviPrompts(): Promise<NaviPrompt[]> {
         try {
-            const response = await got.get(`${this.naviApiUrl}/prompts`).json() as { prompts: NaviPrompt[] };
+            const response = await got.get(`${this.naviApiUrl}/prompts`).json() as { message: string, prompts: NaviPrompt[] };
             return response.prompts || [];
         } catch (error) {
             this.log(`Failed to list navi prompts: ${error}`);
@@ -632,7 +620,8 @@ export default class extends Module {
             if (error?.response?.statusCode === 404) {
                 msg.reply('プロファイルが設定されていません。`navi /profile setup` で初期設定を開始してください。');
             } else {
-                msg.reply('プロファイル取得でエラーが発生しました。');
+                this.log(`Profile fetch error: ${error}`);
+                msg.reply('プロファイル取得でエラーが発生しました。時間を置いてもう一度お試しください。');
             }
             return true;
         }
@@ -666,18 +655,18 @@ export default class extends Module {
     }
 
     @bindThis
-    private async getCustomPrompt(userId: string): Promise<CustomPrompt | null> {
+    private async getCustomPrompt(userId: string): Promise<any> {
         try {
             const response = await got.get(`${this.naviApiUrl}/custom-prompts`, {
                 searchParams: { user_id: userId }
-            }).json() as CustomPrompt;
+            }).json() as any;
             return response;
         } catch (error: any) {
             if (error?.response?.statusCode === 404) {
-                return null; // プロンプトなし
+                return { has_custom_prompt: false, prompt: null }; // プロンプトなし
             }
             this.log(`Failed to get custom prompt: ${error}`);
-            return null;
+            return { has_custom_prompt: false, prompt: null };
         }
     }
 
