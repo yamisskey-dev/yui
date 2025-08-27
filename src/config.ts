@@ -39,4 +39,4 @@ import config from '../config.json' with { type: 'json' };
 (config as any).wsUrl = config.host.replace('http', 'ws');
 (config as any).apiUrl = config.host + '/api';
 
-export default config as Config;
+export default config as unknown as Config;
