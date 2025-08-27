@@ -5,6 +5,14 @@ import Message from '@/message.js';
 import serifs, { getSerif } from '@/serifs.js';
 import getDate from '@/utils/get-date.js';
 
+// TODO: Talk模块改进计划
+// - 実装: より自然な会話フローの管理
+// - 実装: ユーザー学習・記憶機能の強化
+// - 実装: 文脈理解の改善
+// - 实装: 感情状態に応じた応答の差別化
+// - パフォーマンス: レスポンス時間の最適化
+// - 保守性: 会話パターンの拡張性向上
+
 export default class extends Module {
 	public readonly name = 'talk';
 
@@ -17,6 +25,10 @@ export default class extends Module {
 
 	@bindThis
 	private async mentionHook(msg: Message) {
+		// TODO: メッセージ処理の優先度改善
+		// - 緊急度による優先度付け
+		// - 過去の会話履歴の考慮
+		// - ユーザーとの関係性による応答調整
 		const id = msg.id;
 		if (id && this.isAlreadyResponded(id)) return false;
 

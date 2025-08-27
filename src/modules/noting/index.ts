@@ -9,6 +9,16 @@ import got from 'got';
 import { processEmojis, loadCustomEmojis } from '@/utils/emoji-selector.js';
 import { getEmojiListForAI, selectEmoji, fetchEmojis, emojiMapping } from '@/utils/emoji-selector.js';
 
+// TODO: Notingモジュール改善計画
+// - 実装: 複数の天気APIサポートとフォールバック機能
+// - 実装: 地域別の天気対応と個別設定
+// - パフォーマンス: メモリ使用量の最適化
+// - 機能: 週間天気予報を考慮した先読み投稿
+// - 機能: ユーザー設定による投稿内容カスタマイズ
+// - 機能: 気象警報・注意報の自動通知
+// - 分析: 天気履歴の可視化・統計機能
+// - 監視: API可用性の監視とアラート
+
 export default class extends Module {
 	public readonly name = 'noting';
 

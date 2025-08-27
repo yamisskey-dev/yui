@@ -3,6 +3,13 @@ import Module from '@/module.js';
 import Message from '@/message.js';
 import serifs from '@/serifs.js';
 
+// TODO: Diceモジュール改善計画
+// - 機能: より複雑なダイス記法のサポート（修正値、成功数判定）
+// - 機能: ダイス履歴の保存と統計表示
+// - 機能: TRPG系システム固有のルール対応
+// - パフォーマンス: 大量ダイスロール時の最適化
+// - 拡張性: カスタムダイステーブルのサポート
+
 export default class extends Module {
 	public readonly name = 'dice';
 

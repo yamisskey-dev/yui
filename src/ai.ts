@@ -1,4 +1,7 @@
 // AI CORE
+// TODO: エラーハンドリングとログ機能の改善
+// TODO: モジュール間の依存関係管理の実装
+// TODO: パフォーマンス監視とメトリクス収集の追加
 
 import * as fs from 'fs';
 import { bindThis } from '@/decorators.js';
@@ -213,6 +216,10 @@ export default class 唯 {
 			} else {
 				// TODO: ルームチャットの処理を実装
 				// 現在は個別チャットのみ対応
+				// 実装予定機能:
+				// - ルーム権限の確認
+				// - ルーム固有のコンテキスト管理
+				// - ルーム設定に基づく機能制限
 				this.log('Room chat not implemented yet');
 			}
 		});

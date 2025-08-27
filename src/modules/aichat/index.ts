@@ -2,6 +2,14 @@
 // Copyright (c) 2025 lqvp
 // Licensed under MIT License
 
+// TODO: AiChatモジュール改善計画
+// - パフォーマンス: API呼び出しの最適化とキャッシュ機能
+// - 機能: より高度な感情分析とコンテキスト理解
+// - セキュリティ: APIキーの安全な管理とレート制限
+// - 拡張性: 複数のAIプロバイダーサポート
+// - メンテナンス: エラーハンドリングの強化
+// - 機能: マルチターン会話の改善
+
 import { bindThis } from '@/decorators.js';
 import Module from '@/module.js';
 import serifs from '@/serifs.js';

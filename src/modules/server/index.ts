@@ -3,6 +3,14 @@ import Module from '@/module.js';
 import serifs from '@/serifs.js';
 import config from '@/config.js';
 
+// TODO: Serverモジュール改善計画
+// - 機能: より詳細なシステムメトリクス監視（メモリ、ディスク、ネットワーク）
+// - アラート: 多段階アラートシステムの実装
+// - 設定: ユーザー別の閾値設定機能
+// - 履歴: パフォーマンス履歴の長期保存
+// - 可視化: メトリクスの可視化機能
+// - 予測: 異常検知とトレンド分析
+
 export default class extends Module {
 	public readonly name = 'server';
 

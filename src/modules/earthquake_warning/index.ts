@@ -3,6 +3,17 @@ import Module from '@/module.js';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 
+// TODO: 地震速報モジュール改善計画
+// - 実装: より堅牢なエラーハンドリングと復旧機能
+// - セキュリティ: API認証とレート制限の実装
+// - パフォーマンス: 通知配信の最適化
+// - 機能: 地域別の震度閾値設定
+// - 機能: ユーザー個別の通知設定
+// - 監視: サービス可用性の監視とアラート
+// - 実装: 複数の地震情報ソースからの情報統合
+// - 機能: 津波警報との連携
+// - テスト: より包括的なテストカバレッジ
+
 // Configure global retry behavior
 axiosRetry(axios, { 
   retries: 3,

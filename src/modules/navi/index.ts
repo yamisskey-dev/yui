@@ -1,6 +1,14 @@
 // navi - 人生相談サーバー連携モジュール（拡張版）
 // yuiボットからnaviサーバーの全機能を活用
 
+// TODO: Naviモジュール改善計画
+// - 実装: セッション情報の永続化（ファイルシステム/DB対応）
+// - セキュリティ: APIエンドポイントの認証強化
+// - パフォーマンス: 接続プールとリトライ機能の改善
+// - 機能: ユーザープロファイル管理の拡張
+// - 監視: カウンセリング効果の分析機能
+// - 機能: クライシス対応の自動エスカレーション
+
 import { bindThis } from '@/decorators.js';
 import Module from '@/module.js';
 import Message from '@/message.js';
