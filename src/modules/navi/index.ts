@@ -359,7 +359,7 @@ export default class extends Module {
 
     @bindThis
     private async showHelp(msg: Message): Promise<boolean> {
-        const help = `🤖 **Navi 人生相談ボット - ヘルプ**\n\n` +
+        const help = `👁️‍🗨️ **NAVI 人生相談AI - ヘルプ**\n\n` +
             `**📝 基本的な相談方法:**\n` +
             `• \`navi <相談内容>\` - 人生相談を開始\n` +
             `• \`navi 終了\` - 相談を終了\n\n` +
