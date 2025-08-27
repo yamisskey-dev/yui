@@ -276,7 +276,7 @@ export default class extends Module {
                     const currentPrompt = await this.getCustomPrompt(msg.userId);
                     if (currentPrompt && currentPrompt.has_custom_prompt && currentPrompt.prompt) {
                         const prompt = currentPrompt.prompt;
-                        msg.reply(`📝 **現在のカスタムプロンプト:**\n\n${prompt.prompt_text}\n\n📊 **詳細情報:**\n• 名前: ${prompt.name}\n• 作成日時: ${new Date(prompt.created_at).toLocaleString('ja-JP')}\n• 最終更新: ${new Date(prompt.updated_at).toLocaleString('ja-JP')}\n\n削除: \`navi /custom delete\``);
+                        msg.reply(`📝 **現在のカスタムプロンプト:**\n\n${prompt.prompt_text}\n\n削除: \`navi /custom delete\``);
                     } else {
                         msg.reply('📝 **カスタムプロンプト:**\n\n現在設定されているカスタムプロンプトはありません。\n\n作成: `navi /custom set <プロンプト内容>`');
                     }
@@ -439,13 +439,15 @@ export default class extends Module {
 
             let profileText = '👤 **あなたのプロファイル:**\n\n';
             
-            if (response.additional_info) {
-                profileText += `\n📝 **個人情報 (${response.additional_info.length}文字):**\n${response.additional_info}\n`;
+            if (response.profile_text) {
+                profileText += `${response.profile_text}\n`;
+            } else {
+                profileText += 'プロファイルが設定されていません。\n';
             }
             
             profileText += '\n⚙️ **設定変更:**\n';
-            profileText += '• `navi /profile set <プロファイル情報>` - プロファイル設定\n';
-            profileText += '• `navi /profile delete` - プロファイル削除';
+            profileText += '設定: `navi /profile set <プロファイル情報>`\n';
+            profileText += '削除: `navi /profile delete`';
             
             msg.reply(profileText);
             return true;
