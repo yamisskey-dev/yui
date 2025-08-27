@@ -33,26 +33,6 @@ type NaviRequest = {
     prompt_id?: string;
 };
 
-// カスタムプロンプト型定義（簡略化）
-type CustomPrompt = {
-    name: string;
-    prompt_text: string;
-    description: string;
-    tags: string[];
-    created_at: string;
-    updated_at: string;
-};
-
-// NAVI.mdプロンプト型定義
-type NaviPrompt = {
-    id: string;
-    title: string;
-    name: string;
-    description: string;
-    tags: string[];
-    found: boolean;
-};
-
 export default class extends Module {
     public readonly name = 'navi';
     
@@ -87,16 +67,6 @@ export default class extends Module {
             }
         } catch (error) {
             this.log(`Failed to load persistent settings: ${error}`);
-        }
-    }
-
-    @bindThis
-    private savePersistentSettings() {
-        try {
-            this.persistentStorage.set('userPreferences', Array.from(this.userPreferences.entries()));
-            this.log('User preferences saved to persistent storage');
-        } catch (error) {
-            this.log(`Failed to save persistent settings: ${error}`);
         }
     }
 
@@ -163,12 +133,6 @@ export default class extends Module {
                 } else {
                     // 通常のカウンセリング応答
                     let replyText = response.response;
-                    
-                    // フォローアップ質問の表示を削除（ユーザーエクスペリエンス向上）
-                    // より自然な会話体験のため、追加質問は表示しない
-                    
-                    // 感情分析結果の表示は削除（ユーザーエクスペリエンス向上）
-                    // デバッグが必要な場合はサーバーログを確認
                     
                     msg.reply(replyText);
                 }
@@ -245,8 +209,6 @@ export default class extends Module {
                 } else {
                     let replyText = response.response;
                     
-                    // フォローアップ質問の表示を削除（継続会話でも不要）
-                    
                     msg.reply(replyText);
                 }
 
@@ -282,19 +244,23 @@ export default class extends Module {
             return await this.showHelp(msg);
         }
 
-        // ステータス確認
+        // ステータス確認（バージョン情報も含む）
         if (text === 'navi /status') {
             return await this.showStatus(msg);
         }
 
-        // バージョン情報
-        if (text === 'navi /version') {
-            return await this.showVersion(msg);
-        }
-
-        // クイックアクセスコマンド
+        // クイックアクセスコマンド（ショートカット）
         if (text === 'navi') {
-            return await this.showQuickStart(msg);
+            const quickHelp = `🚀 **Navi クイックスタート**\n\n` +
+                `**今すぐ相談:**\n` +
+                `• \`navi <相談内容>\` - 人生相談を開始\n\n` +
+                `**コマンド:**\n` +
+                `• \`navi /help\` - 詳細ヘルプ\n` +
+                `• \`navi /status\` - システム状況\n` +
+                `• \`navi /custom set <プロンプト>\` - カスタムプロンプト\n` +
+                `• \`navi /profile set <情報>\` - プロファイル設定`;
+            msg.reply(quickHelp);
+            return true;
         }
 
         return false;
@@ -305,6 +271,22 @@ export default class extends Module {
         const text = msg.text!;
 
         try {
+            if (text.toLowerCase().includes('show') || text.includes('表示')) {
+                try {
+                    const currentPrompt = await this.getCustomPrompt(msg.userId);
+                    if (currentPrompt && currentPrompt.has_custom_prompt && currentPrompt.prompt) {
+                        const prompt = currentPrompt.prompt;
+                        msg.reply(`📝 **現在のカスタムプロンプト:**\n\n${prompt.prompt_text}\n\n📊 **詳細情報:**\n• 名前: ${prompt.name}\n• 作成日時: ${new Date(prompt.created_at).toLocaleString('ja-JP')}\n• 最終更新: ${new Date(prompt.updated_at).toLocaleString('ja-JP')}\n\n削除: \`navi /custom delete\``);
+                    } else {
+                        msg.reply('📝 **カスタムプロンプト:**\n\n現在設定されているカスタムプロンプトはありません。\n\n作成: `navi /custom set <プロンプト内容>`');
+                    }
+                } catch (error) {
+                    this.log(`[ERROR] Custom prompt show failed: ${error}`);
+                    msg.reply('❌ カスタムプロンプトの取得に失敗しました。');
+                }
+                return true;
+            }
+            
             if (text.toLowerCase().includes('delete') || text.includes('削除')) {
                 try {
                     await this.deleteCustomPrompt(msg.userId);
@@ -316,11 +298,11 @@ export default class extends Module {
                 return true;
             }
 
-            // カスタムプロンプト作成コマンド
-            const createMatch = text.match(/(?:\/custom create|custom create)\s+(.+)/);
-            if (createMatch || text.toLowerCase().includes('create')) {
-                if (createMatch) {
-                    const fullPromptText = createMatch[1].trim();
+            // カスタムプロンプト設定コマンド
+            const setMatch = text.match(/(?:\/custom set|custom set)\s+(.+)/);
+            if (setMatch || text.toLowerCase().includes('set')) {
+                if (setMatch) {
+                    const fullPromptText = setMatch[1].trim();
                     
                     // ダブルクォートで囲まれている場合は除去
                     const promptText = fullPromptText.startsWith('"') && fullPromptText.endsWith('"')
@@ -333,7 +315,7 @@ export default class extends Module {
                         - Length: ${promptText.length}`);
                     
                     if (promptText.length === 0) {
-                        msg.reply('❌ プロンプトの内容を入力してください。\n例: `navi /custom create あなたは優しい先生です。丁寧に教えてください。`');
+                        msg.reply('❌ プロンプトの内容を入力してください。\n例: `navi /custom set あなたは優しい先生です。丁寧に教えてください。`');
                         return true;
                     }
                     
@@ -341,7 +323,7 @@ export default class extends Module {
                     const autoName = promptText.substring(0, 20) + (promptText.length > 20 ? '...' : '');
                     
                     try {
-                        await this.createCustomPrompt(msg.userId, autoName, promptText, 'カスタムプロンプト', ['custom']);
+                        await this.createCustomPrompt(msg.userId, promptText);
                         
                         // 現在のプロンプトが設定されたか確認
                         const currentPrompt = await this.getCustomPrompt(msg.userId);
@@ -356,11 +338,11 @@ export default class extends Module {
                     // 使用方法を表示
                     const createHelp = `📝 **カスタムプロンプト管理:**\n\n` +
                         `**作成・更新:**\n` +
-                        `\`navi /custom create プロンプト内容\`\n\n` +
+                        `\`navi /custom set プロンプト内容\`\n\n` +
                         `**削除:**\n` +
                         `\`navi /custom delete\`\n\n` +
                         `**例:**\n` +
-                        `\`navi /custom create あなたは優しい先生です。分からないことがあったら丁寧に教えてください。\`\n\n` +
+                        `\`navi /custom set あなたは優しい先生です。分からないことがあったら丁寧に教えてください。\`\n\n` +
                         `✨ カスタムプロンプトは1つのみ保存され、作成後すぐに自動適用されます。`;
                     msg.reply(createHelp);
                 }
@@ -382,20 +364,16 @@ export default class extends Module {
             `• \`navi <相談内容>\` - 人生相談を開始\n` +
             `• \`navi 終了\` - 相談を終了\n\n` +
             `**📝 カスタムプロンプト:**\n` +
-            `• \`navi /custom create <プロンプト内容>\` - カスタムプロンプト作成・更新\n` +
+            `• \`navi /custom set <プロンプト内容>\` - カスタムプロンプト設定\n` +
+            `• \`navi /custom show\` - カスタムプロンプト表示\n` +
             `• \`navi /custom delete\` - カスタムプロンプト削除\n\n` +
             `**👤 プロファイル管理:**\n` +
+            `• \`navi /profile set <プロファイル情報>\` - プロファイル設定\n` +
             `• \`navi /profile show\` - プロファイル表示\n` +
-            `• \`navi /profile setup\` - 初期設定開始\n` +
-            `• \`navi /profile setname <名前>\` - 名前設定\n\n` +
+            `• \`navi /profile delete\` - プロファイル削除\n\n` +
             `**⚙️ その他のコマンド:**\n` +
             `• \`navi /help\` - このヘルプを表示\n` +
-            `• \`navi /status\` - サーバー状況確認\n` +
-            `• \`navi /version\` - バージョン情報\n\n` +
-            `**💡 使用例:**\n` +
-            `navi 仕事でストレスを感じています\n` +
-            `navi /custom create あなたは優しい先生です\n` +
-            `navi /profile setname 田中太郎`;
+            `• \`navi /status\` - サーバー状況・バージョン確認`;
 
         msg.reply(help);
         return true;
@@ -414,17 +392,31 @@ export default class extends Module {
                     return await this.showUserProfile(msg);
                 }
 
-                if (text.includes('/profile setname') || text.includes('profile setname')) {
-                    const nameMatch = text.match(/(?:\/profile setname|profile setname)\s+(.+)/);
-                    if (nameMatch) {
-                        await this.setProfileField(msg.userId, 'name', nameMatch[1].trim());
-                        msg.reply(`✅ お名前を「${nameMatch[1].trim()}」に設定しました。`);
+                if (text.includes('/profile set') || text.includes('profile set')) {
+                    const setMatch = text.match(/(?:\/profile set|profile set)\s+(.+)/);
+                    if (setMatch) {
+                        const profileInfo = setMatch[1].trim();
+                        // 全ての情報を profile_text に統合して保存
+                        await this.setProfileField(msg.userId, 'profile_text', profileInfo);
+                        msg.reply(`✅ プロファイルを設定しました。\n\n📝 **設定内容 (${profileInfo.length}文字):**\n${profileInfo.length > 100 ? profileInfo.substring(0, 100) + '...' : profileInfo}\n\n💡 この情報はAIが常に覚えておき、相談時により適切なアドバイスを提供するために使用されます。`);
                         return true;
                     }
                 }
 
-                if (text.includes('/profile setup')) {
-                    return await this.startProfileSetup(msg);
+                if (text.includes('/profile delete') || text.includes('profile delete')) {
+                    try {
+                        await this.deleteUserProfile(msg.userId);
+                        msg.reply('✅ プロファイルを削除しました。次回からはデフォルト設定で人生相談を行います。');
+                        return true;
+                    } catch (error: any) {
+                        if (error?.response?.statusCode === 404) {
+                            msg.reply('❌ 削除するプロファイルが見つかりませんでした。');
+                        } else {
+                            this.log(`Profile deletion error: ${error}`);
+                            msg.reply('❌ プロファイル削除でエラーが発生しました。');
+                        }
+                        return true;
+                    }
                 }
 
             } catch (error) {
@@ -446,26 +438,21 @@ export default class extends Module {
             }).json() as any;
 
             let profileText = '👤 **あなたのプロファイル:**\n\n';
-            profileText += `お名前: ${response.name || '未設定'}\n`;
-            profileText += `職業・状況: ${response.occupation || '未設定'}\n`;
-            profileText += `希望する性格: ${response.personality || '未設定'}\n`;
-            
-            if (response.characteristics && response.characteristics.length > 0) {
-                profileText += `特徴: ${response.characteristics.join(', ')}\n`;
-            }
             
             if (response.additional_info) {
-                profileText += `追加情報: ${response.additional_info}\n`;
+                profileText += `\n📝 **個人情報 (${response.additional_info.length}文字):**\n${response.additional_info}\n`;
             }
             
-            profileText += '\n設定変更: `navi /profile setup`';
+            profileText += '\n⚙️ **設定変更:**\n';
+            profileText += '• `navi /profile set <プロファイル情報>` - プロファイル設定\n';
+            profileText += '• `navi /profile delete` - プロファイル削除';
             
             msg.reply(profileText);
             return true;
 
         } catch (error: any) {
             if (error?.response?.statusCode === 404) {
-                msg.reply('プロファイルが設定されていません。`navi /profile setup` で初期設定を開始してください。');
+                msg.reply('プロファイルが設定されていません。`navi /profile set <プロファイル情報>` でプロファイルを設定してください。\\n\\n例: `navi /profile set 山田太郎、無職です。趣味は読書と散歩です。`');
             } else {
                 this.log(`Profile fetch error: ${error}`);
                 msg.reply('プロファイル取得でエラーが発生しました。時間を置いてもう一度お試しください。');
@@ -483,20 +470,6 @@ export default class extends Module {
             searchParams: { user_id: userId },
             json: requestBody
         });
-    }
-
-    @bindThis
-    private async startProfileSetup(msg: Message): Promise<boolean> {
-        const setupText = `🛠️ **プロファイル初期設定**\n\n` +
-            `個人設定で、あなたに最適化された人生相談を受けられます。\n\n` +
-            `**設定項目:**\n` +
-            `• \`navi /profile setname <あなたの名前>\`\n\n` +
-            `設定後は自動的にあなたに合わせたカウンセリング対応になります！\n\n` +
-            `より詳細なカスタマイズには:\n` +
-            `\`navi /custom create <プロンプト内容>\` をご利用ください。`;
-
-        msg.reply(setupText);
-        return true;
     }
 
     @bindThis
@@ -523,17 +496,21 @@ export default class extends Module {
     }
 
     @bindThis
-    private async createCustomPrompt(userId: string, name: string, promptText: string, description: string = '', tags: string[] = []): Promise<void> {
+    private async createCustomPrompt(userId: string, promptText: string): Promise<void> {
         const requestBody = {
-            name,
-            prompt_text: promptText,
-            description,
-            tags
+            prompt_text: promptText
         };
 
         await got.post(`${this.naviApiUrl}/custom-prompts`, {
             searchParams: { user_id: userId },
             json: requestBody
+        });
+    }
+
+    @bindThis
+    private async deleteUserProfile(userId: string): Promise<void> {
+        await got.delete(`${this.naviApiUrl}/profile`, {
+            searchParams: { user_id: userId }
         });
     }
 
@@ -590,50 +567,21 @@ export default class extends Module {
     }
 
     @bindThis
-    private async timeoutCallback(data: any) {
-        if (data.isNaviSession) {
-            this.log('Navi session timeout');
-            
-            if (data.userId) {
-                this.userSessions.delete(data.userId);
-                
-                // タイムアウト通知（オプション）
-                if ((config as any).naviTimeoutNotification) {
-                    this.ai.sendMessage(data.userId, {
-                        text: '人生相談のセッションがタイムアウトしました。また何かあればいつでもお声がけください。'
-                    });
-                }
-            }
-        }
-    }
-
-
-    @bindThis
     private async showStatus(msg: Message): Promise<boolean> {
         try {
             // naviサーバーのヘルスチェック
             const healthResponse = await got.get(`${this.naviApiUrl}/health`).json() as any;
             
-            // 現在のセッション状況
-            const sessionId = this.userSessions.get(msg.userId);
-            const activeSessionsCount = this.userSessions.size;
-            
-            // ユーザーの設定状況
-            const userPref = this.userPreferences.get(msg.userId);
-            
-            const statusText = `🔍 **Navi システム状況:**\n\n` +
+            const statusText = `🔍 **Navi システム状況・バージョン情報:**\n\n` +
                 `**サーバー状況:**\n` +
                 `• ステータス: ${healthResponse.status === 'healthy' ? '✅ 正常' : '❌ 異常'}\n` +
                 `• サーバーURL: ${this.naviApiUrl}\n` +
                 `• 最終確認: ${new Date(healthResponse.timestamp).toLocaleString('ja-JP')}\n\n` +
-                `**あなたのセッション:**\n` +
-                `• アクティブセッション: ${sessionId ? '✅ あり' : '❌ なし'}\n` +
-                `• セッションID: ${sessionId || '未設定'}\n\n` +
-                `**全体の状況:**\n` +
-                `• アクティブユーザー数: ${activeSessionsCount}人\n\n` +
-                `**あなたの設定:**\n` +
-                `• 設定プロンプト: ${userPref?.promptId || 'なし'}\n` +
-                `• プロンプトタイプ: ${userPref?.promptId ? 'NAVI.md' : 'デフォルト（カスタムがあれば自動適用）'}`;
+                `**バージョン・機能情報:**\n` +
+                `• Naviモジュール: 2.0.0\n` +
+                `• 最終更新: 2025年8月27日\n` +
+                `• 対応機能: 基本相談・カスタムプロンプト・プロファイル・感情分析・クライシス検出\n` +
+                `• AI エンジン: Gemini 2.0 Flash`;
             
             msg.reply(statusText);
             return true;
@@ -643,48 +591,5 @@ export default class extends Module {
             msg.reply('❌ ステータス確認でエラーが発生しました。naviサーバーが起動していることを確認してください。');
             return true;
         }
-    }
-
-    @bindThis
-    private async showVersion(msg: Message): Promise<boolean> {
-        const versionInfo = `📋 **Navi バージョン情報:**\n\n` +
-            `**Naviモジュール:**\n` +
-            `• バージョン: 2.0.0\n` +
-            `• 機能: 拡張スラッシュコマンド対応\n` +
-            `• 最終更新: 2025年8月25日\n\n` +
-            `**対応機能:**\n` +
-            `• ✅ 基本人生相談\n` +
-            `• ✅ カスタムプロンプト\n` +
-            `• ✅ ユーザープロファイル\n` +
-            `• ✅ 感情分析\n` +
-            `• ✅ クライシス検出\n` +
-            `• ✅ フォローアップ質問\n\n` +
-            `**API接続:**\n` +
-            `• サーバー: ${this.naviApiUrl}\n` +
-            `• プロトコル: HTTP REST API\n` +
-            `• AI エンジン: Gemini 2.0 Flash`;
-        
-        msg.reply(versionInfo);
-        return true;
-    }
-
-    @bindThis
-    private async showQuickStart(msg: Message): Promise<boolean> {
-        const quickStart = `🚀 **Navi クイックスタート**\n\n` +
-            `**今すぐ相談を始める:**\n` +
-            '`navi <相談内容>`\n\n' +
-            `**主なコマンド:**\n` +
-            '• `navi /help` - ヘルプ表示\n' +
-            '• `navi /status` - サーバー状況確認\n' +
-            '• `navi /custom create <プロンプト>` - カスタムプロンプト作成\n' +
-            '• `navi /profile show` - プロファイル表示\n\n' +
-            `**初回設定推奨:**\n` +
-            '1. `navi /profile setup` でプロファイル設定\n' +
-            '2. `navi /custom create <プロンプト>` でお好みのキャラクターを設定\n' +
-            '3. `navi こんにちは` で動作確認\n\n' +
-            '詳細は `navi /help` をご確認ください。';
-        
-        msg.reply(quickStart);
-        return true;
     }
 }
