@@ -35,54 +35,22 @@
 | 占い | 占い | [[features/notification/fortune.md]] | 🟢 |
 ---
 
-※「有効/無効」は `src/index.ts` のimport/comment状態に基づきます。
-```markdown
-# ドキュメント目次・全体ガイド
+※「有効/無効」は `src/index.ts` の import/comment 状態に基づきます。
 
-このドキュメントはコード実装状況に合わせて更新しています（最終更新: 2025-08-27）。
+補足（直近の変更）
+- 最終更新: 2025-09-01
+- reminder モジュールの実装調整:
+  - `src/modules/reminder/index.ts` 側で lokijs の型依存を避けるために `MinimalCollection<T>` を導入しています。これはランタイムの依存性を減らすための最小インターフェース定義です（実装の互換性に問題がないことを確認済み）。
+  - `src/modules/reminder/parse.ts` は動的 import（chrono-node）を行う非同期関数のままです。テスト/実行環境によっては ESM 対応の実行オプションが必要です（下記参照）。
 
-## 機能一覧（実装状況）
+テスト実行に関する注意
+- 本リポジトリは TypeScript + ESM の組み合わせでテストを動かすため、ローカルでの実行例:
+  - node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --colors
+- いくつかのテストファイルは一時的にプレースホルダが入っています（ping/dice/birthday）。これは Jest の ESM 実行時に「Your test suite must contain at least one test.」で落ちる現象への暫定対応です。早めに本来のテスト実装に戻してください。
 
-下表は `src/index.ts` のモジュール登録状況（起動時に new されているか）を基準にしています。コメントアウトされているモジュールは未稼働（未実装またはオプトアウト）です。
+ドキュメントと実装の整合性について
+- docs/TECH_TASKS.md に自動生成された差分レポートと対応タスクを掲載しています。ドキュメント更新は実装が変更された際に随時反映してください。
 
-| カテゴリ | 機能 | ドキュメント | 実装状況 |
-|:---|:---|:---|:---:|
-| コア | core | [[features/core/core.md]] | 🟢 |
-| コア | Welcome | [[features/core/welcome.md]] | 🟢 |
-| コア | Follow | [[features/core/follow.md]] | 🟢 |
-| コア | Ping | [[features/core/ping.md]] | 🟢 |
-| 会話_AI | Talk（会話） | [[features/communication/talk.md]] | 🟢 |
-| 会話_AI | AIチャット | [[features/communication/aichat.md]] | 🟢 |
-| 会話_AI | 感情分析 | [[features/communication/emotion-analysis.md]] | 🟢 |
-| 会話_AI | 記憶管理 | [[features/communication/memory-management.md]] | 🟢 |
-| 会話_AI | キーワード学習 | [[features/communication/keyword.md]] | ❌ (未稼働) |
-| ゲーム | Reversi | [[features/game/reversi.md]] | 🟢 |
-| ゲーム | Guessing game | [[features/game/guessing-game.md]] | 🟢 |
-| ゲーム | Kazutori | [[features/game/kazutori.md]] | 🟢 |
-| ゲーム | Maze | [[features/game/maze.md]] | ❌ (未稼働) |
-| 通知・自動投稿 | Reminder | [[features/notification/reminder.md]] | 🟢 |
-| 通知・自動投稿 | Timer | [[features/notification/timer.md]] | 🟢 |
-| 通知・自動投稿 | Birthday | [[features/notification/birthday.md]] | 🟢 |
-| 通知・自動投稿 | Valentine | [[features/notification/valentine.md]] | 🟢 |
-| 通知・自動投稿 | Sleep report | [[features/notification/sleep-report.md]] | 🟢 |
-| 通知・自動投稿 | Weather note | [[features/automation/weather-note.md]] | 🟢 |
-| 通知・自動投稿 | Earthquake warning | [[features/automation/earthquake-warning.md]] | ❌ (未稼働) |
-| 通知・自動投稿 | Chart | [[features/automation/chart.md]] | ❌ (未稼働) |
-| 通知・自動投稿 | Server monitoring | [[features/automation/server.md]] | 🟢 |
-| 通知・自動投稿 | Poll | [[features/automation/poll.md]] | ❌ (未稼働) |
-| 絵文字 | Emoji generation | [[features/emoji/emoji.md]] | 🟢 |
-| 絵文字 | Emoji react | [[features/emoji/emoji-react.md]] | 🟢 |
-| 絵文字 | Check custom emojis | [[features/emoji/check-custom-emojis.md]] | 🟢 |
-| 占い | Fortune | [[features/notification/fortune.md]] | 🟢 |
-
----
-
-注: 詳細な差分・改善タスクは `docs/TECH_TASKS.md` にまとめました。
-
-運用・開発・バージョン管理・FAQは [[development.md]] にまとめてあります。
+運用・開発・バージョン管理・FAQ は [[development.md]] にまとめてあります。
 
 各機能の詳細・使い方・連携は、各ドキュメントを参照してください。
-```
-運用・開発・バージョン管理・FAQは [[development.md]] にまとめてあります。
-
-各機能の詳細・使い方・連携は、各ドキュメントを参照してください。 
