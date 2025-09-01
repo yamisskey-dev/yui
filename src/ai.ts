@@ -211,9 +211,42 @@ export default class 唯 {
 					setTimer();
 				});
 			} else {
-				// TODO: ルームチャットの処理を実装
-				// 現在は個別チャットのみ対応
-				this.log('Room chat not implemented yet');
+				// Room chat handling: connect to chatRoom channel and proxy incoming messages
+				try {
+					const roomId = (data as any).roomId || (data as any).channelId || null;
+					if (roomId) {
+						const roomStream = this.connection.connectToChannel('chatRoom', {
+							roomId: roomId,
+						});
+
+						let timer;
+						function setTimer() {
+							if (timer) clearTimeout(timer);
+							timer = setTimeout(() => {
+								roomStream.dispose();
+							}, 1000 * 60 * 2);
+						}
+						setTimer();
+
+						roomStream.on('message', async (msgData) => {
+							if (msgData.fromUserId == this.account.id) return; // ignore self
+							// send read ack if available
+							if (roomStream.send) {
+								try { roomStream.send('read', { id: msgData.id }); } catch { }
+							}
+							let fromUser = msgData.fromUser;
+							if (!fromUser && msgData.fromUserId) {
+								try {
+									fromUser = await this.api('users/show', { userId: msgData.fromUserId });
+								} catch {}
+							}
+							this.onReceiveMessage(new Message(this, { ...msgData, fromUser }, true));
+							setTimer();
+						});
+					}
+				} catch (err) {
+					this.log('Error setting up room chat stream: ' + err);
+				}
 			}
 		});
 		//#endregion

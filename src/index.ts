@@ -82,7 +82,7 @@ promiseRetry(retry => {
 		new TalkModule(),
 		new CheckCustomEmojisModule(),
 		new EmojiModule(),
-		// new EmojiReactModule(),
+		// new EmojiReactModule(), // TODO: (TECH_TASKS TASK-007) Evaluate and re-enable if emoji-react is implemented
 		new FortuneModule(),
 		new GuessingGameModule(),
 		new KazutoriModule(),
@@ -95,13 +95,13 @@ promiseRetry(retry => {
 		new FollowModule(),
 		new BirthdayModule(),
 		new ValentineModule(),
-		// new KeywordModule(),
+		// new KeywordModule(), // TODO: (TECH_TASKS TASK-004) Implement keyword learning module or remove docs reference
 		// new MazeModule(),
-		// new ChartModule(),
+		// new ChartModule(), // TODO: (TECH_TASKS TASK-005) Chart integration is documented but commented out in src/index.ts
 		new SleepReportModule(),
 		new NotingModule(),
-		// new PollModule(),
-		// new EarthQuakeWarningModule(),
+		// new PollModule(), // TODO: Consider enabling once poll module stabilized
+		// new EarthQuakeWarningModule(), // TODO: Earthquake warning doc exists but module is commented out; sync status
 	]);
 }).catch(e => {
 	log(chalk.red('Failed to fetch the account'));
