@@ -18,6 +18,16 @@
 - 本番運用時は built/ のマウントを外すこと
 - config.jsonの管理・バックアップを徹底
 
+## Reminder 関連の運用注意（追記）
+- 直近の実装変更により `src/modules/reminder/parse.ts` が実行時に `chrono-node` を動的 import する非同期処理へ移行しました。
+  - 影響: リマインダー関連の連携テストや自動通知処理で日時パースが必要な場合、`chrono-node` が実行環境に存在しないとパースが行われず `null` が返ります（フォールバック動作は設計上存在しますが、期待する振る舞いにならない可能性があります）。
+  - 対策: CI と本番環境のデプロイ時に `npm install chrono-node` を含めるか、コンテナイメージに組み込むことを推奨します。
+- テスト/CI 実行時の ESM 対応:
+  - Jest を ESM 環境で実行する際は Node に `--experimental-vm-modules` を付与する等の設定が必要になる場合があります。CI ワークフローに該当オプションを追加してください。
+  - 例: `node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --colors`
+- 運用手順への反映:
+  - リリース手順書やデプロイスクリプトに上記の `chrono-node` のインストールと ESM テスト実行オプションを明記してください。
+
 ---
 
-詳細な仕様や開発手順は他のドキュメントを参照してください。 
+その他の運用ノウハウ、障害復旧フローは上部の手順や `docs/IMPLEMENTATION_NOTES.md` を参照してください。
