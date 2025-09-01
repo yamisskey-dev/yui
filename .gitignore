@@ -3,3 +3,6 @@ built
 node_modules
 memory.json
 font.ttf
+
+# 応急出力
+tsc-output.txt
