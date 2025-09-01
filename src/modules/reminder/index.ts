@@ -1,31 +1,36 @@
 import { bindThis } from '@/decorators.js';
-import loki from 'lokijs';
 import Module from '@/module.js';
 import Message from '@/message.js';
 import serifs, { getSerif } from '@/serifs.js';
 import { acct } from '@/utils/acct.js';
 import config from '@/config.js';
+import { parseTimeExpression } from './parse.js';
+import type { ParseResult } from './parse.js';
 
 const NOTIFY_INTERVAL = 1000 * 60 * 60 * 12;
 
-export default class extends Module {
-	public readonly name = 'reminder';
+type RemindRecord = { userId: string; id: string; isChat: boolean; thing: string | null; quoteId?: string | null; times: number; createdAt: number };
 
-	private reminds: loki.Collection<{
-		userId: string;
-		id: string;
-		isChat: boolean;
-		thing: string | null;
-		quoteId: string | null;
-		times: number; // 催促した回数(使うのか？)
-		createdAt: number;
-	}>;
+// Minimal interface for a collection to avoid depending on lokijs types
+interface MinimalCollection<T> {
+  find(query?: Partial<T> | any): T[];
+  findOne(query?: Partial<T> | any): T | null;
+  insertOne(doc: T): T;
+  update(doc: T): void;
+  remove(doc: T): void;
+  findAndRemove?(query: Partial<T> | any): void;
+}
 
-	@bindThis
-	public install() {
-		this.reminds = this.ai.getCollection('reminds', {
-			indices: ['userId', 'id']
-		});
+export default class Reminder extends Module {
+  public readonly name = 'reminder';
+
+  private reminds!: MinimalCollection<RemindRecord>;
+
+@bindThis
+public install() {
+this.reminds = this.ai.getCollection('reminds', {
+indices: ['userId', 'id']
+});
 
 		return {
 			mentionHook: this.mentionHook,
@@ -34,10 +39,10 @@ export default class extends Module {
 		};
 	}
 
-	@bindThis
-	private async mentionHook(msg: Message) {
-		let text = msg.extractedText.toLowerCase();
-		if (!text.startsWith('remind') && !text.startsWith('todo')) return false;
+@bindThis
+private async mentionHook(msg: Message) {
+let text = msg.extractedText.toLowerCase();
+if (!text.startsWith('remind') && !text.startsWith('todo')) return false;
 
 		if (text.startsWith('reminds') || text.startsWith('todos')) {
 			const reminds = this.reminds.find({
@@ -56,8 +61,19 @@ export default class extends Module {
 			text = '';
 		}
 
-		const separatorIndex = text.indexOf(' ') > -1 ? text.indexOf(' ') : text.indexOf('\n');
-		const thing = text.substr(separatorIndex + 1).trim();
+
+ // simple parsing: support optional time expressions at the start like:
+ // "in 2 hours buy milk", "tomorrow 09:00 meeting", "at 14:30 call"
+ const timeParse = await parseTimeExpression(text);
+ let thing: string | null = null;
+ let scheduledAt: number | null = null;
+ if (timeParse) {
+   scheduledAt = timeParse.when;
+   thing = timeParse.text.trim();
+ } else {
+   const separatorIndex = text.indexOf(' ') > -1 ? text.indexOf(' ') : text.indexOf('\n');
+   thing = text.substr(separatorIndex + 1).trim();
+ }
 
 		// フォロワー限定チェックを削除し、内容が空でかつ引用もない場合のみ無効とする
 		if (thing === '' && msg.quoteId == null) {
@@ -79,21 +95,25 @@ export default class extends Module {
 		});
 
 		// メンションをsubscribe
-		this.subscribeReply(remind!.id, msg.isChat, msg.isChat ? msg.userId : msg.id, {
-			id: remind!.id
-		});
+this.subscribeReply(remind.id, msg.isChat, msg.isChat ? msg.userId : msg.id, {
+id: remind.id
+});
 
 		if (msg.quoteId) {
 			// 引用元をsubscribe
-			this.subscribeReply(remind!.id, false, msg.quoteId, {
-				id: remind!.id
-			});
+this.subscribeReply(remind.id, false, msg.quoteId, {
+id: remind.id
+});
 		}
 
-		// タイマーセット
-		this.setTimeoutWithPersistence(NOTIFY_INTERVAL, {
-			id: remind!.id,
-		});
+
+		// タイマーセット: scheduledAt があればそこに、それ以外はデフォルト間隔
+if (scheduledAt) {
+const delay = Math.max(0, scheduledAt - Date.now());
+this.setTimeoutWithPersistence(delay, { id: remind.id });
+} else {
+this.setTimeoutWithPersistence(NOTIFY_INTERVAL, { id: remind.id });
+}
 
 		return {
 			reaction: '🆗',
@@ -101,9 +121,9 @@ export default class extends Module {
 		};
 	}
 
-	@bindThis
-	private async contextHook(key: any, msg: Message, data: any) {
-		if (msg.text == null) return;
+@bindThis
+private async contextHook(key: any, msg: Message, data: any) {
+if (msg.text == null) return;
 
 		const remind = this.reminds.findOne({
 			id: data.id,
@@ -132,11 +152,11 @@ export default class extends Module {
 		}
 	}
 
-	@bindThis
-	private async timeoutCallback(data) {
-		const remind = this.reminds.findOne({
-			id: data.id
-		});
+@bindThis
+private async timeoutCallback(data) {
+const remind = this.reminds.findOne({
+id: data.id
+});
 		if (remind == null) return;
 
 		remind.times++;
@@ -176,4 +196,14 @@ export default class extends Module {
 			id: remind.id,
 		});
 	}
+
+	/**
+	 * Parse very simple time expressions at the start of the text.
+	 * Supported patterns:
+	 * - in (\d+) hours? <text>
+	 * - tomorrow HH:MM <text>
+	 * - at HH:MM <text>
+	 */
+	// parseTimeExpression は外部 util に移動しました
+
 }
