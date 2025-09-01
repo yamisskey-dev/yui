@@ -84,7 +84,7 @@ Misskey用の日本語Botです。
   "host": "https://yami.ski",
   "i": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
   "master": "admin",
-  "notingEnabled": "false",
+  "notingEnabled": "true",
   "keywordEnabled": "false",
   "chartEnabled": "false",
   "reversiEnabled": "true",
