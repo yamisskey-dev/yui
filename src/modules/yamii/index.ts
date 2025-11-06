@@ -1,5 +1,5 @@
-// navi - 人生相談サーバー連携モジュール（拡張版）
-// yuiボットからnaviサーバーの全機能を活用
+// yamii - 人生相談サーバー連携モジュール（拡張版）
+// yuiボットからyamiiサーバーの全機能を活用
 
 import { bindThis } from '@/decorators.js';
 import Module from '@/module.js';
@@ -7,8 +7,8 @@ import Message from '@/message.js';
 import config from '@/config.js';
 import got from 'got';
 
-// navi サーバーのレスポンス型定義
-type NaviResponse = {
+// yamii サーバーのレスポンス型定義
+type YamiiResponse = {
     response: string;
     session_id: string;
     timestamp: string;
@@ -23,7 +23,7 @@ type NaviResponse = {
     is_crisis: boolean;
 };
 
-type NaviRequest = {
+type YamiiRequest = {
     message: string;
     user_id: string;
     user_name?: string;
@@ -34,17 +34,17 @@ type NaviRequest = {
 };
 
 export default class extends Module {
-    public readonly name = 'navi';
-    
-    private naviApiUrl: string;
+    public readonly name = 'yamii';
+
+    private yamiiApiUrl: string;
     private userSessions: Map<string, string> = new Map(); // userId -> sessionId
     private userPreferences: Map<string, { promptId?: string }> = new Map(); // ユーザー設定（customPromptIdは削除）
     private persistentStorage: Map<string, any> = new Map(); // 永続化ストレージ
 
     @bindThis
     public install() {
-        // navi サーバーのURLを設定から取得
-        this.naviApiUrl = (config as any).naviApiUrl || 'http://localhost:8000';
+        // yamii サーバーのURLを設定から取得
+        this.yamiiApiUrl = (config as any).yamiiApiUrl || 'http://localhost:8000';
         
         // 永続化された設定を復元
         this.loadPersistentSettings();
@@ -90,30 +90,30 @@ export default class extends Module {
         }
         
         // カスタムプロンプト管理コマンド
-        if (msg.text.toLowerCase().trim().startsWith('navi /custom')) {
+        if (msg.text.toLowerCase().trim().startsWith('yamii /custom')) {
             return await this.handleCustomPromptCommands(msg);
         }
 
         // スラッシュコマンドの判定
-        const naviCommands = [
-            'navi '
+        const yamiiCommands = [
+            'yamii '
         ];
 
-        const isNaviCommand = naviCommands.some(cmd =>
+        const isYamiiCommand = yamiiCommands.some(cmd =>
             msg.text?.toLowerCase().startsWith(cmd.toLowerCase())
         );
 
-        if (!isNaviCommand) {
+        if (!isYamiiCommand) {
             return false;
         }
 
-        this.log('Navi counseling request detected');
+        this.log('Yamii counseling request detected');
 
         try {
             // コマンドプレフィックスを除去してメッセージを抽出
             let cleanMessage = msg.text;
-            if (cleanMessage.toLowerCase().startsWith('navi ')) {
-                cleanMessage = cleanMessage.substring(5).trim();
+            if (cleanMessage.toLowerCase().startsWith('yamii ')) {
+                cleanMessage = cleanMessage.substring(6).trim();
             }
 
             if (cleanMessage.length === 0) {
@@ -121,8 +121,8 @@ export default class extends Module {
                 return true;
             }
 
-            // navi サーバーにリクエスト送信
-            const response = await this.sendToNaviServer(cleanMessage, msg.userId, msg.user.name);
+            // yamii サーバーにリクエスト送信
+            const response = await this.sendToYamiiServer(cleanMessage, msg.userId, msg.user.name);
             
             if (response) {
                 // クライシス状況の場合は特別な対応
@@ -147,18 +147,18 @@ export default class extends Module {
             }
 
         } catch (error) {
-            this.log(`Navi service error: ${error}`);
-            
+            this.log(`Yamii service error: ${error}`);
+
             // エラーの詳細分析
             let errorMessage = '人生相談サービスでエラーが発生しました。';
             let troubleshooting = '';
-            
+
             if (error instanceof Error) {
                 if (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed')) {
-                    errorMessage = '❌ naviサーバーに接続できませんでした。';
+                    errorMessage = '❌ yamiiサーバーに接続できませんでした。';
                     troubleshooting = '\n\n🔧 **トラブルシューティング:**\n' +
-                        '• `navi status` でサーバー状況を確認\n' +
-                        '• naviサーバーが起動していることを確認\n' +
+                        '• `yamii status` でサーバー状況を確認\n' +
+                        '• yamiiサーバーが起動していることを確認\n' +
                         '• ネットワーク接続を確認';
                 } else if (error.message.includes('timeout')) {
                     errorMessage = '⏱️ サーバーからの応答がタイムアウトしました。';
@@ -188,8 +188,8 @@ export default class extends Module {
             return false;
         }
 
-        // セッション終了コマンド（navi 終了 のみ）
-        if (msg.includes(['navi 終了'])) {
+        // セッション終了コマンド（yamii 終了 のみ）
+        if (msg.includes(['yamii 終了'])) {
             this.userSessions.delete(msg.userId);
             this.unsubscribeReply(key);
             msg.reply('人生相談を終了しました。また何かあればいつでもお声がけください。お疲れ様でした。');
@@ -198,7 +198,7 @@ export default class extends Module {
 
         // 継続的な会話として処理
         try {
-            const response = await this.sendToNaviServer(msg.text, msg.userId, msg.user.name, sessionId);
+            const response = await this.sendToYamiiServer(msg.text, msg.userId, msg.user.name, sessionId);
             
             if (response) {
                 this.unsubscribeReply(key);
@@ -217,14 +217,14 @@ export default class extends Module {
                 this.setTimeoutWithPersistence(1000 * 60 * 30, { // 30分でタイムアウト
                     id: response.session_id,
                     userId: msg.userId,
-                    isNaviSession: true
+                    isYamiiSession: true
                 });
 
                 return { reaction: 'like' };
             }
 
         } catch (error) {
-            this.log(`Navi context error: ${error}`);
+            this.log(`Yamii context error: ${error}`);
             msg.reply('申し訳ありません。人生相談の継続中にエラーが発生しました。');
             this.unsubscribeReply(key);
             return false;
@@ -240,25 +240,25 @@ export default class extends Module {
         const text = msg.text.toLowerCase().trim();
 
         // ヘルプ表示
-        if (text === 'navi /help') {
+        if (text === 'yamii /help') {
             return await this.showHelp(msg);
         }
 
         // ステータス確認（バージョン情報も含む）
-        if (text === 'navi /status') {
+        if (text === 'yamii /status') {
             return await this.showStatus(msg);
         }
 
         // クイックアクセスコマンド（ショートカット）
-        if (text === 'navi') {
-            const quickHelp = `🚀 **Navi クイックスタート**\n\n` +
+        if (text === 'yamii') {
+            const quickHelp = `🚀 **Yamii クイックスタート**\n\n` +
                 `**今すぐ相談:**\n` +
-                `• \`navi <相談内容>\` - 人生相談を開始\n\n` +
+                `• \`yamii <相談内容>\` - 人生相談を開始\n\n` +
                 `**コマンド:**\n` +
-                `• \`navi /help\` - 詳細ヘルプ\n` +
-                `• \`navi /status\` - システム状況\n` +
-                `• \`navi /custom set <プロンプト>\` - カスタムプロンプト\n` +
-                `• \`navi /profile set <情報>\` - プロファイル設定`;
+                `• \`yamii /help\` - 詳細ヘルプ\n` +
+                `• \`yamii /status\` - システム状況\n` +
+                `• \`yamii /custom set <プロンプト>\` - カスタムプロンプト\n` +
+                `• \`yamii /profile set <情報>\` - プロファイル設定`;
             msg.reply(quickHelp);
             return true;
         }
@@ -276,9 +276,9 @@ export default class extends Module {
                     const currentPrompt = await this.getCustomPrompt(msg.userId);
                     if (currentPrompt && currentPrompt.has_custom_prompt && currentPrompt.prompt) {
                         const prompt = currentPrompt.prompt;
-                        msg.reply(`📝 **現在のカスタムプロンプト:**\n\n${prompt.prompt_text}\n\n削除: \`navi /custom delete\``);
+                        msg.reply(`📝 **現在のカスタムプロンプト:**\n\n${prompt.prompt_text}\n\n削除: \`yamii /custom delete\``);
                     } else {
-                        msg.reply('📝 **カスタムプロンプト:**\n\n現在設定されているカスタムプロンプトはありません。\n\n作成: `navi /custom set <プロンプト内容>`');
+                        msg.reply('📝 **カスタムプロンプト:**\n\n現在設定されているカスタムプロンプトはありません。\n\n作成: `yamii /custom set <プロンプト内容>`');
                     }
                 } catch (error) {
                     this.log(`[ERROR] Custom prompt show failed: ${error}`);
@@ -315,7 +315,7 @@ export default class extends Module {
                         - Length: ${promptText.length}`);
                     
                     if (promptText.length === 0) {
-                        msg.reply('❌ プロンプトの内容を入力してください。\n例: `navi /custom set あなたは優しい先生です。丁寧に教えてください。`');
+                        msg.reply('❌ プロンプトの内容を入力してください。\n例: `yamii /custom set あなたは優しい先生です。丁寧に教えてください。`');
                         return true;
                     }
                     
@@ -329,7 +329,7 @@ export default class extends Module {
                         const currentPrompt = await this.getCustomPrompt(msg.userId);
                         const hasPrompt = currentPrompt && currentPrompt.has_custom_prompt;
                         
-                        msg.reply(`✅ カスタムプロンプト「${autoName}」を${hasPrompt ? '更新' : '作成'}しました！\n\n✨ **次回の相談から自動的に適用されます**\n\n📝 プロンプト内容 (${promptText.length}文字):\n${promptText.length > 100 ? promptText.substring(0, 100) + '...' : promptText}\n\n削除: \`navi /custom delete\``);
+                        msg.reply(`✅ カスタムプロンプト「${autoName}」を${hasPrompt ? '更新' : '作成'}しました！\n\n✨ **次回の相談から自動的に適用されます**\n\n📝 プロンプト内容 (${promptText.length}文字):\n${promptText.length > 100 ? promptText.substring(0, 100) + '...' : promptText}\n\n削除: \`yamii /custom delete\``);
                     } catch (error) {
                         this.log(`[ERROR] Custom prompt creation failed: ${error}`);
                         msg.reply('❌ カスタムプロンプトの作成に失敗しました。');
@@ -338,11 +338,11 @@ export default class extends Module {
                     // 使用方法を表示
                     const createHelp = `📝 **カスタムプロンプト管理:**\n\n` +
                         `**作成・更新:**\n` +
-                        `\`navi /custom set プロンプト内容\`\n\n` +
+                        `\`yamii /custom set プロンプト内容\`\n\n` +
                         `**削除:**\n` +
-                        `\`navi /custom delete\`\n\n` +
+                        `\`yamii /custom delete\`\n\n` +
                         `**例:**\n` +
-                        `\`navi /custom set あなたは優しい先生です。分からないことがあったら丁寧に教えてください。\`\n\n` +
+                        `\`yamii /custom set あなたは優しい先生です。分からないことがあったら丁寧に教えてください。\`\n\n` +
                         `✨ カスタムプロンプトは1つのみ保存され、作成後すぐに自動適用されます。`;
                     msg.reply(createHelp);
                 }
@@ -359,21 +359,21 @@ export default class extends Module {
 
     @bindThis
     private async showHelp(msg: Message): Promise<boolean> {
-        const help = `👁️‍🗨️ **NAVI 人生相談AI - ヘルプ**\n\n` +
+        const help = `👁️‍🗨️ **YAMII 人生相談AI - ヘルプ**\n\n` +
             `**📝 基本的な相談方法:**\n` +
-            `• \`navi <相談内容>\` - 人生相談を開始\n` +
-            `• \`navi 終了\` - 相談を終了\n\n` +
+            `• \`yamii <相談内容>\` - 人生相談を開始\n` +
+            `• \`yamii 終了\` - 相談を終了\n\n` +
             `**📝 カスタムプロンプト:**\n` +
-            `• \`navi /custom set <プロンプト内容>\` - カスタムプロンプト設定\n` +
-            `• \`navi /custom show\` - カスタムプロンプト表示\n` +
-            `• \`navi /custom delete\` - カスタムプロンプト削除\n\n` +
+            `• \`yamii /custom set <プロンプト内容>\` - カスタムプロンプト設定\n` +
+            `• \`yamii /custom show\` - カスタムプロンプト表示\n` +
+            `• \`yamii /custom delete\` - カスタムプロンプト削除\n\n` +
             `**👤 プロファイル管理:**\n` +
-            `• \`navi /profile set <プロファイル情報>\` - プロファイル設定\n` +
-            `• \`navi /profile show\` - プロファイル表示\n` +
-            `• \`navi /profile delete\` - プロファイル削除\n\n` +
+            `• \`yamii /profile set <プロファイル情報>\` - プロファイル設定\n` +
+            `• \`yamii /profile show\` - プロファイル表示\n` +
+            `• \`yamii /profile delete\` - プロファイル削除\n\n` +
             `**⚙️ その他のコマンド:**\n` +
-            `• \`navi /help\` - このヘルプを表示\n` +
-            `• \`navi /status\` - サーバー状況・バージョン確認`;
+            `• \`yamii /help\` - このヘルプを表示\n` +
+            `• \`yamii /status\` - サーバー状況・バージョン確認`;
 
         msg.reply(help);
         return true;
@@ -386,7 +386,7 @@ export default class extends Module {
 
         const text = msg.text.toLowerCase().trim();
 
-        if (text.startsWith('navi /profile') || text.startsWith('navi profile') || text.startsWith('navi プロファイル')) {
+        if (text.startsWith('yamii /profile') || text.startsWith('yamii profile') || text.startsWith('yamii プロファイル')) {
             try {
                 if (text.includes('/profile show') || text.includes('profile show') || text.includes('表示')) {
                     return await this.showUserProfile(msg);
@@ -433,7 +433,7 @@ export default class extends Module {
     @bindThis
     private async showUserProfile(msg: Message): Promise<boolean> {
         try {
-            const response = await got.get(`${this.naviApiUrl}/profile`, {
+            const response = await got.get(`${this.yamiiApiUrl}/profile`, {
                 searchParams: { user_id: msg.userId }
             }).json() as any;
 
@@ -446,15 +446,15 @@ export default class extends Module {
             }
             
             profileText += '\n⚙️ **設定変更:**\n';
-            profileText += '設定: `navi /profile set <プロファイル情報>`\n';
-            profileText += '削除: `navi /profile delete`';
+            profileText += '設定: `yamii /profile set <プロファイル情報>`\n';
+            profileText += '削除: `yamii /profile delete`';
             
             msg.reply(profileText);
             return true;
 
         } catch (error: any) {
             if (error?.response?.statusCode === 404) {
-                msg.reply('プロファイルが設定されていません。`navi /profile set <プロファイル情報>` でプロファイルを設定してください。\\n\\n例: `navi /profile set 山田太郎、無職です。趣味は読書と散歩です。`');
+                msg.reply('プロファイルが設定されていません。`yamii /profile set <プロファイル情報>` でプロファイルを設定してください。\\n\\n例: `yamii /profile set 山田太郎、無職です。趣味は読書と散歩です。`');
             } else {
                 this.log(`Profile fetch error: ${error}`);
                 msg.reply('プロファイル取得でエラーが発生しました。時間を置いてもう一度お試しください。');
@@ -468,7 +468,7 @@ export default class extends Module {
         const requestBody: any = {};
         requestBody[field] = value;
 
-        await got.post(`${this.naviApiUrl}/profile`, {
+        await got.post(`${this.yamiiApiUrl}/profile`, {
             searchParams: { user_id: userId },
             json: requestBody
         });
@@ -477,7 +477,7 @@ export default class extends Module {
     @bindThis
     private async getCustomPrompt(userId: string): Promise<any> {
         try {
-            const response = await got.get(`${this.naviApiUrl}/custom-prompts`, {
+            const response = await got.get(`${this.yamiiApiUrl}/custom-prompts`, {
                 searchParams: { user_id: userId }
             }).json() as any;
             return response;
@@ -492,7 +492,7 @@ export default class extends Module {
 
     @bindThis
     private async deleteCustomPrompt(userId: string): Promise<void> {
-        await got.delete(`${this.naviApiUrl}/custom-prompts`, {
+        await got.delete(`${this.yamiiApiUrl}/custom-prompts`, {
             searchParams: { user_id: userId }
         });
     }
@@ -503,7 +503,7 @@ export default class extends Module {
             prompt_text: promptText
         };
 
-        await got.post(`${this.naviApiUrl}/custom-prompts`, {
+        await got.post(`${this.yamiiApiUrl}/custom-prompts`, {
             searchParams: { user_id: userId },
             json: requestBody
         });
@@ -511,18 +511,18 @@ export default class extends Module {
 
     @bindThis
     private async deleteUserProfile(userId: string): Promise<void> {
-        await got.delete(`${this.naviApiUrl}/profile`, {
+        await got.delete(`${this.yamiiApiUrl}/profile`, {
             searchParams: { user_id: userId }
         });
     }
 
     @bindThis
-    private async sendToNaviServer(message: string, userId: string, userName?: string, sessionId?: string): Promise<NaviResponse | null> {
+    private async sendToYamiiServer(message: string, userId: string, userName?: string, sessionId?: string): Promise<YamiiResponse | null> {
         try {
             // ユーザー設定を取得
             const userPref = this.userPreferences.get(userId);
-            
-            const requestBody: NaviRequest = {
+
+            const requestBody: YamiiRequest = {
                 message: message,
                 user_id: userId,
                 user_name: userName,
@@ -538,9 +538,9 @@ export default class extends Module {
                 requestBody.prompt_id = userPref.promptId;
             }
 
-            this.log(`Sending request to navi server: ${this.naviApiUrl}/counseling`);
+            this.log(`Sending request to yamii server: ${this.yamiiApiUrl}/counseling`);
 
-            const response = await got.post(`${this.naviApiUrl}/counseling`, {
+            const response = await got.post(`${this.yamiiApiUrl}/counseling`, {
                 json: requestBody,
                 timeout: {
                     request: 30000 // 30秒タイムアウト
@@ -549,14 +549,14 @@ export default class extends Module {
                     limit: 2,
                     methods: ['POST']
                 }
-            }).json<NaviResponse>();
+            }).json<YamiiResponse>();
 
-            this.log(`Navi server response received: emotion=${response.emotion_analysis.primary_emotion}, type=${response.advice_type}`);
+            this.log(`Yamii server response received: emotion=${response.emotion_analysis.primary_emotion}, type=${response.advice_type}`);
 
             return response;
 
         } catch (error: any) {
-            this.log(`Failed to communicate with navi server: ${error?.message || error}`);
+            this.log(`Failed to communicate with yamii server: ${error?.message || error}`);
             
             // サーバーエラーの詳細ログ
             if (error?.response?.statusCode) {
@@ -571,26 +571,26 @@ export default class extends Module {
     @bindThis
     private async showStatus(msg: Message): Promise<boolean> {
         try {
-            // naviサーバーのヘルスチェック
-            const healthResponse = await got.get(`${this.naviApiUrl}/health`).json() as any;
-            
-            const statusText = `🔍 **Navi システム状況・バージョン情報:**\n\n` +
+            // yamiiサーバーのヘルスチェック
+            const healthResponse = await got.get(`${this.yamiiApiUrl}/health`).json() as any;
+
+            const statusText = `🔍 **Yamii システム状況・バージョン情報:**\n\n` +
                 `**サーバー状況:**\n` +
                 `• ステータス: ${healthResponse.status === 'healthy' ? '✅ 正常' : '❌ 異常'}\n` +
-                `• サーバーURL: ${this.naviApiUrl}\n` +
+                `• サーバーURL: ${this.yamiiApiUrl}\n` +
                 `• 最終確認: ${new Date(healthResponse.timestamp).toLocaleString('ja-JP')}\n\n` +
                 `**バージョン・機能情報:**\n` +
-                `• Naviモジュール: 2.0.0\n` +
+                `• Yamiiモジュール: 2.0.0\n` +
                 `• 最終更新: 2025年8月27日\n` +
                 `• 対応機能: 基本相談・カスタムプロンプト・プロファイル・感情分析・クライシス検出\n` +
                 `• AI エンジン: Gemini 2.0 Flash`;
-            
+
             msg.reply(statusText);
             return true;
-            
+
         } catch (error) {
             this.log(`Status check failed: ${error}`);
-            msg.reply('❌ ステータス確認でエラーが発生しました。naviサーバーが起動していることを確認してください。');
+            msg.reply('❌ ステータス確認でエラーが発生しました。yamiiサーバーが起動していることを確認してください。');
             return true;
         }
     }

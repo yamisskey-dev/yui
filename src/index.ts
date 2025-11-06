@@ -36,7 +36,7 @@ import ReminderModule from './modules/reminder/index.js';
 import CheckCustomEmojisModule from './modules/check-custom-emojis/index.js';
 // import EarthQuakeWarningModule from './modules/earthquake_warning/index.js';
 import AiChatModule from './modules/aichat/index.js';
-import NaviModule from './modules/navi/index.js';
+import YamiiModule from './modules/yamii/index.js';
 
 console.log('   __    ____  _____  ___ ');
 console.log('  /__\\  (_  _)(  _  )/ __)');
@@ -76,7 +76,7 @@ promiseRetry(retry => {
 	// 唯起動
 	new 唯(account as any, [
 		new CoreModule(),
-		new NaviModule(),
+		new YamiiModule(),
 		new AiChatModule(),
 		new ReminderModule(),
 		new TalkModule(),
