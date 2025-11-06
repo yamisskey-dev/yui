@@ -26,9 +26,9 @@ type Config = {
   autoNoteDisableNightPosting?: string;
   followAllowedHosts?: string[];
   followExcludeInstances?: string[];
-  naviApiUrl?: string;
-  naviDebugMode?: string;
-  naviTimeoutNotification?: string;
+  yamiiApiUrl?: string;
+  yamiiDebugMode?: string;
+  yamiiTimeoutNotification?: string;
   mecab?: string;
   mecabDic?: string;
   memoryDir?: string;

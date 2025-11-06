@@ -61,7 +61,7 @@
   - src/ai.ts: 行214, 248
   - src/modules/reversi/back.ts: 行278
 - モジュール起動一覧 (src/index.ts, 2025-09-01 時点):
-  - 有効: Core, Navi, AiChat, Reminder, Talk, CheckCustomEmojis, Emoji, Fortune, GuessingGame, Kazutori, Reversi, Timer, Dice, Ping, Welcome, Server, Follow, Birthday, Valentine, SleepReport, Noting
+  - 有効: Core, Yamii, AiChat, Reminder, Talk, CheckCustomEmojis, Emoji, Fortune, GuessingGame, Kazutori, Reversi, Timer, Dice, Ping, Welcome, Server, Follow, Birthday, Valentine, SleepReport, Noting
   - 無効(コメントアウト): EmojiReactModule, KeywordModule, MazeModule, ChartModule, PollModule, EarthQuakeWarningModule
 
 6) 次のステップ (推奨)
