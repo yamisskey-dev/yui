@@ -10,7 +10,6 @@
 | コア | Welcome | [[features/core/welcome.md]] | 🟢 |
 | コア | Follow | [[features/core/follow.md]] | 🟢 |
 | コア | Ping | [[features/core/ping.md]] | 🟢 |
-| 会話・AI | 人生相談AI | [[features/communication/yamii.md]] | 🟢 |
 | 会話・AI | 会話 | [[features/communication/talk.md]] | 🟢 |
 | 会話・AI | AIチャット | [[features/communication/aichat.md]] | 🟢 |
 | 会話・AI | 感情分析システム | [[features/communication/emotion-analysis.md]] | 🟢 |
