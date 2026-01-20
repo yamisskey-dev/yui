@@ -3,10 +3,9 @@
 	"compilerOptions": {
 		"target": "ES2022",
 		"module": "nodenext",
-"moduleResolution": "nodenext",
-"allowImportingTsExtensions": true,
-"noEmit": true,
-"declaration": true,
+		"moduleResolution": "nodenext",
+		"declaration": true,
+		"rewriteRelativeImportExtensions": true,
 		"declarationMap": true,
 		"sourceMap": true,
 		"rootDir": "./src",
@@ -17,14 +16,14 @@
 		"strictPropertyInitialization": false,
 		"strictFunctionTypes": true,
 		"strictNullChecks": true,
-"experimentalDecorators": true,
-"noImplicitReturns": true,
-"noImplicitAny": false,
-"esModuleInterop": true,
-"isolatedModules": true,
-"typeRoots": [
-"./node_modules/@types"
-],
+		"experimentalDecorators": true,
+		"noImplicitReturns": true,
+		"noImplicitAny": false,
+		"esModuleInterop": true,
+		"isolatedModules": true,
+		"typeRoots": [
+		"./node_modules/@types"
+		],
 		"lib": [
 			"esnext",
 			"dom"
