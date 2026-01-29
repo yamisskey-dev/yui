@@ -356,7 +356,7 @@ export default class extends Module {
 【使用可能なMisskeyカスタム絵文字一覧】
 ${emojiList}`;
 		const userContent = `【天気情報】\n- 天気: ${weather.telop}\n- 詳細: ${weather.detail.weather}\n- 最高気温: ${weather.temperature.max?.celsius ?? '不明'}℃\n- 最低気温: ${weather.temperature.min?.celsius ?? '不明'}℃\n- 降水確率: ${Object.entries(weather.chanceOfRain).map(([k,v])=>`${k}:${v}`).join(' ')}\n【時間帯】\n${timeOfDayStr}\n【状況】\n${situation}\n【キーワード】\n${keywords.join('、')}`;
-		const geminiModel = config.geminiModel || 'gemini-2.0-flash-exp';
+		const geminiModel = config.geminiModel || 'gemini-2.5-flash';
 		const GEMINI_API = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
 		const apiKey = config.geminiApiKey;
 		const geminiOptions = {

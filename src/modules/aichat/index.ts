@@ -117,7 +117,7 @@ type UrlPreview = {
 };
 
 const TYPE_GEMINI = 'gemini';
-const geminiModel = config.geminiModel || 'gemini-2.0-flash-exp';
+const geminiModel = config.geminiModel || 'gemini-2.5-flash';
 const GEMINI_API = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
 const GROUNDING_TARGET = 'ggg';
 

@@ -15,7 +15,7 @@
 	"aichatRandomTalkIntervalMinutes": "300",
 	"aichatGroundingWithGoogleSearchAlwaysEnabled": "false",
 	"geminiApiKey": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-	"geminiModel": "gemini-2.0-flash-exp",
+	"geminiModel": "gemini-2.5-flash",
 	"geminiPostMode": "both",
 	"autoNotePrompt": "タイムラインを見て、誰かに話しかけたくなった時の自然な呟きや、ふと思>ったことを280文字以内で投稿してください。会話のきっかけになるような、親しみやすい内容を心がけてくださ>い。",
 	 "autoNoteIntervalMinutes": "240",
