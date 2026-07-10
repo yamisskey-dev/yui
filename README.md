@@ -104,7 +104,7 @@ Misskey用の日本語Botです。
   "geminiAutoNoteProbability": "0.08",
   "autoNoteDisableNightPosting": "true",
   "mecab": "/usr/bin/mecab",
-  "mecabDic": "/usr/lib/x86_64-linux-linux-mecab/dic/mecab-ipadic-neologd/",
+  "mecabDic": "/usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd/",
   "memoryDir": "data"
 }
 ```
