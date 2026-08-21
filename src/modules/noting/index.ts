@@ -20,7 +20,7 @@ export default class extends Module {
 	@bindThis
 	public install() {
 		this.log('[noting] install() called');
-		if (config.notingEnabled === "false") return {};
+		if (!config.notingEnabled) return {};
 
 		// 起動時に必ず1回投稿し、その後ランダム間隔で定期投稿をスケジューリング
 		setTimeout(() => {
