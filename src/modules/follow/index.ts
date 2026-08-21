@@ -7,7 +7,7 @@ import Module from '@/module.js';
 import Message from '@/message.js';
 import config from '@/config.js';
 import { User, UserDetailed } from '@/misskey/user.js';
-import { UserFormatter } from '@/utils/user-formatter.js';
+import { formatUserForLog } from '@/utils/user-formatter.js';
 import serifs from '@/serifs.js';
 
 // 定数定義
@@ -180,7 +180,7 @@ export default class extends Module {
   private async followUserByMaster(targetUser: UserDetailed): Promise<boolean> {
     try {
       this.log(
-        `Attempting to follow user: ${UserFormatter.formatUserForLog(
+        `Attempting to follow user: ${formatUserForLog(
           targetUser
         )} (ID: ${targetUser.id})`
       );
@@ -188,7 +188,7 @@ export default class extends Module {
       // 既にフォロー中かチェック
       if (targetUser.isFollowing) {
         this.log(
-          `User ${UserFormatter.formatUserForLog(
+          `User ${formatUserForLog(
             targetUser
           )} is already being followed`
         );
@@ -203,7 +203,7 @@ export default class extends Module {
         this.setProtectedFollowIds([...protectedIds, targetUser.id]);
       }
       this.log(
-        `Master forced follow: ${UserFormatter.formatUserForLog(targetUser)}`
+        `Master forced follow: ${formatUserForLog(targetUser)}`
       );
       return true;
     } catch (error) {
@@ -221,7 +221,7 @@ export default class extends Module {
   ): Promise<boolean> {
     try {
       this.log(
-        `Attempting to unfollow user: ${UserFormatter.formatUserForLog(
+        `Attempting to unfollow user: ${formatUserForLog(
           targetUser
         )} (ID: ${targetUser.id})`
       );
@@ -229,7 +229,7 @@ export default class extends Module {
       // フォローしているかチェック
       if (!targetUser.isFollowing) {
         this.log(
-          `User ${UserFormatter.formatUserForLog(
+          `User ${formatUserForLog(
             targetUser
           )} is not being followed`
         );
@@ -242,7 +242,7 @@ export default class extends Module {
         this.getProtectedFollowIds().filter((id) => id !== targetUser.id)
       );
       this.log(
-        `Master forced unfollow: ${UserFormatter.formatUserForLog(targetUser)}`
+        `Master forced unfollow: ${formatUserForLog(targetUser)}`
       );
       return true;
     } catch (error) {
@@ -434,7 +434,7 @@ export default class extends Module {
       });
       this.log(
         `Found ${usersToUnfollow.length} users to unfollow: ${usersToUnfollow
-          .map((u) => UserFormatter.formatUserForLog(u))
+          .map((u) => formatUserForLog(u))
           .join(', ')}`
       );
 
@@ -454,7 +454,7 @@ export default class extends Module {
       for (const user of batch) {
         try {
           await this.ai.api('following/delete', { userId: user.id });
-          this.log(`Unfollowed ${UserFormatter.formatUserForLog(user)}`);
+          this.log(`Unfollowed ${formatUserForLog(user)}`);
         } catch (error) {
           console.error(`Failed to unfollow @${user.username}:`, error);
         }
