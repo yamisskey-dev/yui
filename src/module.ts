@@ -1,14 +1,17 @@
 import { bindThis } from '@/decorators.js';
 import 唯, { InstallerResult } from '@/ai.js';
 
-// 応答済みID管理用セット
-const respondedIdSet = new Set<string>();
+// 応答済みIDの保持上限（超えたら古いものから破棄）
+const RESPONDED_ID_LIMIT = 10000;
 
 export default abstract class Module {
 	public abstract readonly name: string;
 
 	protected ai: 唯;
 	private doc: any;
+
+	// 応答済みID管理用セット（モジュールごとに独立。プロセス再起動で消える揮発キャッシュ）
+	private respondedIds = new Set<string>();
 
 	public init(ai: 唯) {
 		this.ai = ai;
@@ -68,14 +71,19 @@ export default abstract class Module {
 	 * 指定IDに既に応答済みか判定
 	 */
 	protected isAlreadyResponded(id: string): boolean {
-		return respondedIdSet.has(id);
+		return this.respondedIds.has(id);
 	}
 
 	/**
 	 * 指定IDを応答済みとして記録
 	 */
 	protected markResponded(id: string) {
-		respondedIdSet.add(id);
+		this.respondedIds.add(id);
+		if (this.respondedIds.size > RESPONDED_ID_LIMIT) {
+			// Set は挿入順を保持するため、最初の要素が最も古い
+			const oldest = this.respondedIds.values().next().value;
+			if (oldest !== undefined) this.respondedIds.delete(oldest);
+		}
 	}
 
 	@bindThis
