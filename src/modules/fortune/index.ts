@@ -49,20 +49,16 @@ export default class extends Module {
 	}
 
 	@bindThis
-	private genOmikuji(): string {
-		const date = new Date();
-		const seed = `${date.getFullYear()}/${date.getMonth()}/${date.getDate()}@${this.ai.account.id}`;
-		const rng = seedrandom(seed);
-		return blessing[Math.floor(rng() * blessing.length)];
-	}
-
-	@bindThis
 	private async mentionHook(msg: Message) {
 		const id = msg.id;
 		if (id && this.isAlreadyResponded(id)) return false;
-		if (msg.includes(['おみくじ', 'omikuji', '占い'])) {
-			const omikuji = this.genOmikuji();
-			const item = genItem();
+		if (msg.includes(['おみくじ', 'omikuji', '占', 'うらな', '運勢'])) {
+			// ユーザーごとに日替わりで決定的な結果になるようにシードを組む
+			const date = new Date();
+			const seed = `${date.getFullYear()}/${date.getMonth()}/${date.getDate()}@${msg.userId}`;
+			const rng = seedrandom(seed);
+			const omikuji = blessing[Math.floor(rng() * blessing.length)];
+			const item = genItem(rng);
 			const emoji = selectEmoji('celebration');
 			msg.reply(`**${omikuji}${emoji}**\nラッキーアイテム: ${item}`, {
 				immediate: true
