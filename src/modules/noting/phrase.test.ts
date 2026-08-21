@@ -70,6 +70,24 @@ describe('determinePhraseKey', () => {
 		expect(result.vars.temp_diff).toBe(6);
 	});
 
+	test('春でも雷雨・虹は桜・花粉より優先される', () => {
+		const spring = { ...base, month: 4, day: 5 };
+		expect(
+			determinePhraseKey({
+				...spring,
+				today: forecast({ telop: '雷を伴う雨', detailWeather: '雷雨 風強い' }),
+			}).key
+		).toBe('thunderstorm');
+		expect(
+			determinePhraseKey({
+				...spring,
+				today: forecast({ telop: '晴れ', detailWeather: '虹が見られるかも' }),
+				yesterday: forecast({ telop: '雨' }),
+				pastTelops: ['雨'],
+			}).key
+		).toBe('rainbow');
+	});
+
 	test('快晴は時間帯別のキーになる', () => {
 		expect(
 			determinePhraseKey({ ...base, today: forecast(), timeOfDay: 'night' }).key

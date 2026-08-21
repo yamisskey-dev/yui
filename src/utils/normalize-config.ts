@@ -60,8 +60,9 @@ function parseBooleanValue(key: string, value: unknown): boolean {
 }
 
 function parseNumberValue(key: string, value: unknown): number {
-	const num = typeof value === 'number' ? value : Number.parseFloat(String(value));
-	if (Number.isNaN(num)) {
+	// parseFloat だと '12abc' の部分パースや 'Infinity' を許してしまうため Number + isFinite で厳格に検証する
+	const num = typeof value === 'number' ? value : Number(String(value).trim());
+	if (!Number.isFinite(num)) {
 		throw new Error(`config.${key} は数値で指定してください（現在値: ${JSON.stringify(value)}）`);
 	}
 	return num;
@@ -81,9 +82,16 @@ export function normalizeConfig(raw: Record<string, unknown>): Config {
 		if (conf[key] !== undefined) conf[key] = parseNumberValue(key, conf[key]);
 	}
 
-	const host = String(conf.host);
-	conf.wsUrl = host.replace('http', 'ws');
-	conf.apiUrl = host + '/api';
+	// 必須項目の検証（欠けたまま進むと最初の API 呼び出しまでエラーが顕在化しない）
+	if (typeof conf.host !== 'string' || conf.host.length === 0) {
+		throw new Error('config.host は必須です（http:// または https:// で始まる URL を指定してください）');
+	}
+	if (typeof conf.i !== 'string' || conf.i.length === 0) {
+		throw new Error('config.i は必須です（Bot アカウントのアクセストークンを指定してください）');
+	}
+
+	conf.wsUrl = conf.host.replace(/^http/, 'ws');
+	conf.apiUrl = conf.host + '/api';
 
 	return conf as Config;
 }

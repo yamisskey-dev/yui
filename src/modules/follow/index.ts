@@ -101,10 +101,11 @@ export default class extends Module {
       .trim()
       .toLowerCase();
 
+    // 単語境界まで見る（"followers を見せて" のような本文での誤発動を防ぐ）
     let action: typeof ACTIONS.FOLLOW | typeof ACTIONS.UNFOLLOW | null = null;
-    if (stripped.startsWith(ACTIONS.UNFOLLOW)) {
+    if (/^unfollow(\s|$)/.test(stripped)) {
       action = ACTIONS.UNFOLLOW;
-    } else if (stripped.startsWith(ACTIONS.FOLLOW)) {
+    } else if (/^follow(\s|$)/.test(stripped)) {
       action = ACTIONS.FOLLOW;
     } else {
       return null;

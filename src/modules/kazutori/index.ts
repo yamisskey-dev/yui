@@ -69,9 +69,19 @@ export default class extends Module {
 		}
 
 		const icon = selectEmoji('game');
-		const post = await this.ai.post({
-			text: `${serifs.kazutori.intro(limitMinutes)} ${icon}`
-		});
+		let post: any;
+		try {
+			post = await this.ai.post({
+				text: `${serifs.kazutori.intro(limitMinutes)} ${icon}`
+			});
+		} catch (e) {
+			this.log('Failed to start kazutori game: ' + e);
+			return true;
+		}
+		if (post?.id == null) {
+			this.log('Failed to start kazutori game: post id is missing');
+			return true;
+		}
 
 		this.games.insertOne({
 			votes: [],

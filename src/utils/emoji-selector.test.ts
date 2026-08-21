@@ -25,6 +25,10 @@ describe('processEmojis', () => {
 		expect(processEmojis('12:00 と 13:00 に会いましょう', customEmojis)).toBe('12:00 と 13:00 に会いましょう');
 	});
 
+	test('秒まで含む時刻表記（連続コロン）も壊さない', () => {
+		expect(processEmojis('記録は 12:00:30 でした', customEmojis)).toBe('記録は 12:00:30 でした');
+	});
+
 	test('ハイフン入りのカスタム絵文字名も残す', () => {
 		expect(processEmojis(':blob-dance:', customEmojis)).toBe(':blob-dance:');
 	});

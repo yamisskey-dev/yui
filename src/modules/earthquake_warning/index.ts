@@ -241,7 +241,7 @@ class EarthquakeWarningModule extends Module {
 
 			this.maintainCache();
 		} catch (error) {
-			if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+			if (axios.isAxiosError(error) && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT')) {
 				console.warn('Request timeout:', error.message);
 				return;
 			}
@@ -292,7 +292,8 @@ class EarthquakeWarningModule extends Module {
 		}
 
 		// 更新間隔チェック（短時間の更新はスキップ）
-		if (currentTime - cached.lastUpdate < EarthquakeWarningModule.CONFIG.UPDATE_MIN_INTERVAL_MS) return;
+		// 最終報は間引くと以後の配信が来ない場合に取りこぼすため対象外にする
+		if (!data.is_final && currentTime - cached.lastUpdate < EarthquakeWarningModule.CONFIG.UPDATE_MIN_INTERVAL_MS) return;
 
 		// データの重要な変更があるかチェック
 		const hasSignificantChanges =

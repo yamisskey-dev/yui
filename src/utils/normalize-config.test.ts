@@ -50,6 +50,18 @@ describe('normalizeConfig', () => {
 		expect(() => normalizeConfig({ ...base, aichatRandomTalkProbability: 'abc' })).toThrow(/aichatRandomTalkProbability/);
 	});
 
+	test('数値キーの部分パース（"12abc"）や Infinity は許容しない', () => {
+		expect(() => normalizeConfig({ ...base, aichatRandomTalkIntervalMinutes: '12abc' })).toThrow(/aichatRandomTalkIntervalMinutes/);
+		expect(() => normalizeConfig({ ...base, aichatRandomTalkProbability: 'Infinity' })).toThrow(/aichatRandomTalkProbability/);
+	});
+
+	test('必須キー（host / i）が無ければ投げる', () => {
+		const { host, ...noHost } = base;
+		expect(() => normalizeConfig(noHost)).toThrow(/host/);
+		const { i, ...noToken } = base;
+		expect(() => normalizeConfig(noToken)).toThrow(/config\.i/);
+	});
+
 	test('wsUrl と apiUrl を host から導出する', () => {
 		const conf = normalizeConfig({ ...base });
 		expect(conf.wsUrl).toBe('wss://misskey.example.com');

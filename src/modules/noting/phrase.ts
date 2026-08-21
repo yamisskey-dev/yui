@@ -61,6 +61,21 @@ export function determinePhraseKey(input: PhraseInput): PhraseResult {
 	if (today.maxCelsius != null && today.maxCelsius >= 35) {
 		return { key: 'extreme_heat', vars: {} };
 	}
+	// 具体的な現象（雷雨・虹・黄砂）は、月日ベースの汎用イベント（桜・花粉）より先に判定する
+	if ((today.telop.includes('雷') || today.detailWeather.includes('雷')) && today.telop.includes('雨')) {
+		return { key: 'thunderstorm', vars: {} };
+	}
+	if (
+		yesterday != null &&
+		yesterday.telop.includes('雨') &&
+		today.telop.includes('晴') &&
+		(today.detailWeather.includes('虹') || today.telop.includes('虹'))
+	) {
+		return { key: 'rainbow', vars: {} };
+	}
+	if (month >= 3 && month <= 5 && (today.telop.includes('黄砂') || today.detailWeather.includes('黄砂'))) {
+		return { key: 'yellow_sand', vars: {} };
+	}
 	if (
 		((month === 3 && day >= 20) || (month === 4 && day <= 10)) &&
 		(today.telop.includes('晴') || today.telop.includes('曇'))
@@ -70,22 +85,8 @@ export function determinePhraseKey(input: PhraseInput): PhraseResult {
 	if ((month === 3 || month === 4) && (today.telop.includes('晴') || today.detailWeather.includes('風'))) {
 		return { key: 'pollen', vars: {} };
 	}
-	if (month >= 3 && month <= 5 && (today.telop.includes('黄砂') || today.detailWeather.includes('黄砂'))) {
-		return { key: 'yellow_sand', vars: {} };
-	}
-	if ((today.telop.includes('雷') || today.detailWeather.includes('雷')) && today.telop.includes('雨')) {
-		return { key: 'thunderstorm', vars: {} };
-	}
 	if ((month >= 11 || month <= 3) && today.minCelsius != null && today.minCelsius <= 0) {
 		return { key: 'frost', vars: {} };
-	}
-	if (
-		yesterday != null &&
-		yesterday.telop.includes('雨') &&
-		today.telop.includes('晴') &&
-		(today.detailWeather.includes('虹') || today.telop.includes('虹'))
-	) {
-		return { key: 'rainbow', vars: {} };
 	}
 
 	// --- 履歴・気温イベント ---

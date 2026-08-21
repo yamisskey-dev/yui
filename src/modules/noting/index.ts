@@ -131,7 +131,8 @@ export default class extends Module {
 		try {
 			this.log(`post() called (forcePost=${forcePost})`);
 			const now = new Date();
-			const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+			// ローカル時刻基準の YYYY-MM-DD（toISOString だと UTC 日付になり timeOfDay と基準がズレる）
+			const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 			const timeOfDay = timeOfDayOf(now.getHours());
 
 			const weather = await this.fetchWeatherWithRetry();

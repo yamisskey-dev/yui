@@ -224,6 +224,8 @@ export function isCustomEmoji(emojiName: string, customEmojis: Set<string>): boo
  */
 export function processEmojis(text: string, customEmojis: Set<string> = cachedNames): string {
 	return text.replace(/:([a-zA-Z0-9_+-]+)(?:@[a-zA-Z0-9_.-]+)?:/g, (match, name) => {
+		// 数字のみのトークンは「12:00:30」のような時刻表記の一部である可能性が高いため触らない
+		if (/^[0-9]+$/.test(name)) return match;
 		// Misskey APIで取得できたカスタム絵文字名は必ず通す
 		if (customEmojis.has(name)) return match;
 		// Unicode変換できるものは変換
