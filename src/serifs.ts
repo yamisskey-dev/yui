@@ -436,6 +436,8 @@ export default {
 		nothing: `あぅ... APIキーが登録されてないみたいです`,
 		error: `うぇ...エラーが発生しちゃったみたいです。`,
 		post: (text) => `${text} #aichat`,
+		endChat: 'aichatを終了しました。また何かあればお声がけくださいね！',
+		endChatGuide: '💡 チャット中に「aichat 終了」「aichat 終わり」「aichat やめる」「aichat 止めて」のいずれかと送信すると会話を終了できます。',
 	},
 
   follow: {
