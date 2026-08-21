@@ -10,6 +10,10 @@ export type Config = {
 	chartEnabled: boolean;
 	reversiEnabled: boolean;
 	serverMonitoring: boolean;
+	mazeEnabled?: boolean;
+	pollEnabled?: boolean;
+	emojiReactEnabled?: boolean;
+	earthquakeWarningEnabled?: boolean;
 	checkEmojisEnabled?: boolean;
 	checkEmojisAtOnce?: boolean;
 	prompt?: string;
@@ -38,6 +42,10 @@ const BOOLEAN_KEYS = [
 	'chartEnabled',
 	'reversiEnabled',
 	'serverMonitoring',
+	'mazeEnabled',
+	'pollEnabled',
+	'emojiReactEnabled',
+	'earthquakeWarningEnabled',
 	'checkEmojisEnabled',
 	'checkEmojisAtOnce',
 	'aichatRandomTalkEnabled',

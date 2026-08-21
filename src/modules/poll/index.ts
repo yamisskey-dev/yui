@@ -11,6 +11,8 @@ export default class extends Module {
 
 	@bindThis
 	public install() {
+		if (!config.pollEnabled) return {};
+
 		setInterval(() => {
 			if (Math.random() < 0.1) {
 				this.post();
@@ -96,14 +98,14 @@ export default class extends Module {
 		} else if (mostVotedChoices.length === 1) {
 			this.ai.post({
 				cw: serifs.poll.resultCw(title),
-				text: serifs.poll.result(title, mostVotedChoice.votes, mostVotedChoice.text),
+				text: serifs.poll.result(mostVotedChoice.votes, mostVotedChoice.text),
 				renoteId: noteId,
 			});
 		} else {
 			const choices = mostVotedChoices.map(choice => `「${choice.text}」`).join('と');
 			this.ai.post({
 				cw: serifs.poll.resultCw(title),
-				text: serifs.poll.resultTie(title, mostVotedChoice.votes, choices),
+				text: serifs.poll.resultTie(mostVotedChoice.votes, choices),
 				renoteId: noteId,
 			});
 		}

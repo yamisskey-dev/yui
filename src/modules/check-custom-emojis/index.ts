@@ -8,7 +8,7 @@ import Message from '@/message.js';
 export default class extends Module {
 	public readonly name = 'checkCustomEmojis';
 
-	private lastEmoji: loki.Collection<{
+	private lastEmoji!: loki.Collection<{
 		id: string;
 		updatedAt: number;
 	}>;

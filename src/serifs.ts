@@ -227,13 +227,13 @@ export default {
 		/**
 		 * 結果発表（単独1位）
 		 */
-		result: (title: string, votes: number, choice: string) => 
+		result: (votes: number, choice: string) =>
 			`結果は${votes}票の「${choice}」でした！`,
 
 		/**
 		 * 結果発表（同率1位）
 		 */
-		resultTie: (title: string, votes: number, choices: string) => 
+		resultTie: (votes: number, choices: string) =>
 			`結果は${votes}票の${choices}でした！`,
 
 		/**
@@ -350,6 +350,7 @@ export default {
 	 */
 	emoji: {
 		suggest: emoji => `こんなのはどうですか？→${emoji}`,
+		intro: (emoji: string) => `Misskeyのカスタム絵文字です ${emoji}`,
 	},
 
 	/**

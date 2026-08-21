@@ -175,7 +175,7 @@ export default class Reminder extends Module {
 				});
 			} catch (err) {
 				// renote対象が消されていたらリマインダー解除
-				if (err.statusCode === 400) {
+				if ((err as { statusCode?: number }).statusCode === 400) {
 					this.unsubscribeReply(remind.thing == null && remind.quoteId ? remind.quoteId : remind.id);
 					this.reminds.remove(remind);
 					return;

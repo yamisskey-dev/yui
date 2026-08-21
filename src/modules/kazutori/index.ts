@@ -26,7 +26,7 @@ const limitMinutes = 10;
 export default class extends Module {
 	public readonly name = 'kazutori';
 
-	private games: loki.Collection<Game>;
+	private games!: loki.Collection<Game>;
 
 	@bindThis
 	public install() {

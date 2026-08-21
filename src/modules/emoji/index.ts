@@ -19,7 +19,7 @@ export default class extends Module {
 		// 絵文字関連のコマンド
 		if (msg.includes(['絵文字', 'emoji', 'カスタム絵文字'])) {
 			const emoji = selectEmoji('default');
-			msg.reply(`Misskeyのカスタム絵文字です ${emoji}`);
+			msg.reply(serifs.emoji.intro(emoji));
 			return true;
 		}
 

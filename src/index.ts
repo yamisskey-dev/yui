@@ -16,25 +16,25 @@ import BirthdayModule from './modules/birthday/index.js';
 import ReversiModule from './modules/reversi/index.js';
 import PingModule from './modules/ping/index.js';
 import EmojiModule from './modules/emoji/index.js';
-// import EmojiReactModule from './modules/emoji-react/index.js';
+import EmojiReactModule from './modules/emoji-react/index.js';
 import FortuneModule from './modules/fortune/index.js';
 import GuessingGameModule from './modules/guessing-game/index.js';
 import KazutoriModule from './modules/kazutori/index.js';
-// import KeywordModule from './modules/keyword/index.js';
+import KeywordModule from './modules/keyword/index.js';
 import WelcomeModule from './modules/welcome/index.js';
 import TimerModule from './modules/timer/index.js';
 import DiceModule from './modules/dice/index.js';
 import ServerModule from './modules/server/index.js';
 import FollowModule from './modules/follow/index.js';
 import ValentineModule from './modules/valentine/index.js';
-// import MazeModule from './modules/maze/index.js';
-// import ChartModule from './modules/chart/index.js';
+import MazeModule from './modules/maze/index.js';
+import ChartModule from './modules/chart/index.js';
 import SleepReportModule from './modules/sleep-report/index.js';
 import NotingModule from './modules/noting/index.js';
-// import PollModule from './modules/poll/index.js';
+import PollModule from './modules/poll/index.js';
 import ReminderModule from './modules/reminder/index.js';
 import CheckCustomEmojisModule from './modules/check-custom-emojis/index.js';
-// import EarthQuakeWarningModule from './modules/earthquake_warning/index.js';
+import EarthQuakeWarningModule from './modules/earthquake_warning/index.js';
 import AiChatModule from './modules/aichat/index.js';
 
 console.log('   __    ____  _____  ___ ');
@@ -72,7 +72,7 @@ promiseRetry(retry => {
 
 	log('Starting AiOS...');
 
-	// 唯起動
+	// 唯起動（各モジュールの有効/無効は config のフラグで制御される）
 	new 唯(account as any, [
 		new CoreModule(),
 		new AiChatModule(),
@@ -80,7 +80,7 @@ promiseRetry(retry => {
 		new TalkModule(),
 		new CheckCustomEmojisModule(),
 		new EmojiModule(),
-		// new EmojiReactModule(), // TODO: (TECH_TASKS TASK-007) Evaluate and re-enable if emoji-react is implemented
+		new EmojiReactModule(),
 		new FortuneModule(),
 		new GuessingGameModule(),
 		new KazutoriModule(),
@@ -93,13 +93,13 @@ promiseRetry(retry => {
 		new FollowModule(),
 		new BirthdayModule(),
 		new ValentineModule(),
-		// new KeywordModule(), // TODO: (TECH_TASKS TASK-004) Implement keyword learning module or remove docs reference
-		// new MazeModule(),
-		// new ChartModule(), // TODO: (TECH_TASKS TASK-005) Chart integration is documented but commented out in src/index.ts
+		new KeywordModule(),
+		new MazeModule(),
+		new ChartModule(),
 		new SleepReportModule(),
 		new NotingModule(),
-		// new PollModule(), // TODO: Consider enabling once poll module stabilized
-		// new EarthQuakeWarningModule(), // TODO: Earthquake warning doc exists but module is commented out; sync status
+		new PollModule(),
+		new EarthQuakeWarningModule(),
 	]);
 }).catch(e => {
 	log(chalk.red('Failed to fetch the account'));
