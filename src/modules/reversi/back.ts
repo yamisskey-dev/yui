@@ -25,11 +25,11 @@ const titles = [
 ];
 
 class Session {
-	private account: User;
+	private account!: User;
 	private game: any;
 	private form: any;
-	private engine: Reversi.Game;
-	private botColor: Reversi.Color;
+	private engine!: Reversi.Game;
+	private botColor!: Reversi.Color;
 
 	private appliedOps: string[] = [];
 

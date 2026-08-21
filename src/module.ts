@@ -8,7 +8,7 @@ const RESPONDED_ID_LIMIT = 10000;
 export default abstract class Module {
 	public abstract readonly name: string;
 
-	protected ai: 唯;
+	protected ai!: 唯;
 	private doc: any;
 
 	// 応答済みID管理用セット（モジュールごとに独立。プロセス再起動で消える揮発キャッシュ）

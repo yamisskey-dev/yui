@@ -6,6 +6,16 @@ import { renderChart } from './render-chart.js';
 import { items } from '@/vocabulary.js';
 import config from '@/config.js';
 
+
+// チャートAPIレスポンスのうち利用する部分のみの型
+type NoteDiffs = { normal: number[]; reply: number[]; renote: number[] };
+type UserNotesChart = { diffs: NoteDiffs };
+type UserFollowingChart = {
+	local: { followers: { total: number[] } };
+	remote: { followers: { total: number[] } };
+};
+type NotesChart = { local: { diffs: NoteDiffs } };
+
 export default class extends Module {
 	public readonly name = 'chart';
 
@@ -48,50 +58,50 @@ export default class extends Module {
 		let chart;
 
 		if (type === 'userNotes') {
-			const data = await this.ai.api('charts/user/notes', {
+			const data = await this.ai.api<UserNotesChart>('charts/user/notes', {
 				span: 'day',
 				limit: 30,
 				userId: params.user.id
-			}) as any;
+			});
 
 			chart = {
 				title: `@${params.user.username}さんの投稿数`,
 				datasets: [{
-					data: (data as any).diffs.normal
+					data: data.diffs.normal
 				}, {
-					data: (data as any).diffs.reply
+					data: data.diffs.reply
 				}, {
-					data: (data as any).diffs.renote
+					data: data.diffs.renote
 				}]
 			};
 		} else if (type === 'followers') {
-			const data = await this.ai.api('charts/user/following', {
+			const data = await this.ai.api<UserFollowingChart>('charts/user/following', {
 				span: 'day',
 				limit: 30,
 				userId: params.user.id
-			}) as any;
+			});
 
 			chart = {
 				title: `@${params.user.username}さんのフォロワー数`,
 				datasets: [{
-					data: (data as any).local.followers.total
+					data: data.local.followers.total
 				}, {
-					data: (data as any).remote.followers.total
+					data: data.remote.followers.total
 				}]
 			};
 		} else if (type === 'notes') {
-			const data = await this.ai.api('charts/notes', {
+			const data = await this.ai.api<NotesChart>('charts/notes', {
 				span: 'day',
 				limit: 30,
-			}) as any;
+			});
 
 			chart = {
 				datasets: [{
-					data: (data as any).local.diffs.normal
+					data: data.local.diffs.normal
 				}, {
-					data: (data as any).local.diffs.reply
+					data: data.local.diffs.reply
 				}, {
-					data: (data as any).local.diffs.renote
+					data: data.local.diffs.renote
 				}]
 			};
 		} else {

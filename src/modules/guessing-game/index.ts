@@ -7,7 +7,7 @@ import serifs from '@/serifs.js';
 export default class extends Module {
 	public readonly name = 'guessingGame';
 
-	private guesses: loki.Collection<{
+	private guesses!: loki.Collection<{
 		userId: string;
 		secret: number;
 		tries: number[];

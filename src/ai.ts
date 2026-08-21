@@ -44,17 +44,17 @@ export type Meta = {
 export default class 唯 {
 	public readonly version = pkg.version;
 	public account: User;
-	public connection: Stream;
+	public connection!: Stream;
 	public modules: Module[] = [];
 	private mentionHooks: MentionHook[] = [];
 	private contextHooks: { [moduleName: string]: ContextHook } = {};
 	private timeoutCallbacks: { [moduleName: string]: TimeoutCallback } = {};
 	public db: loki;
-	public lastSleepedAt: number;
+	public lastSleepedAt!: number;
 
-	private meta: loki.Collection<Meta>;
+	private meta!: loki.Collection<Meta>;
 
-	private contexts: loki.Collection<{
+	private contexts!: loki.Collection<{
 		isChat: boolean;
 		noteId?: string;
 		userId?: string;
@@ -63,7 +63,7 @@ export default class 唯 {
 		data?: any;
 	}>;
 
-	private timers: loki.Collection<{
+	private timers!: loki.Collection<{
 		id: string;
 		module: string;
 		insertedAt: number;
@@ -71,8 +71,8 @@ export default class 唯 {
 		data?: any;
 	}>;
 
-	public friends: loki.Collection<FriendDoc>;
-	public moduleData: loki.Collection<any>;
+	public friends!: loki.Collection<FriendDoc>;
+	public moduleData!: loki.Collection<any>;
 
 	/**
 	 * 唯インスタンスを生成します
@@ -477,13 +477,13 @@ export default class 唯 {
 	 * APIを呼び出します
 	 */
 	@bindThis
-	public api(endpoint: string, param?: any) {
+	public api<T = unknown>(endpoint: string, param?: any): Promise<T> {
 		this.log(`API: ${endpoint}`);
 		return got.post(`${config.apiUrl}/${endpoint}`, {
 			json: Object.assign({
 				i: config.i
 			}, param)
-		}).json();
+		}).json<T>();
 	};
 
 	/**

@@ -93,7 +93,7 @@ const COOLDOWN_MAP_LIMIT = 1000;
 
 export default class extends Module {
 	public readonly name = 'aichat';
-	private aichatHist: loki.Collection<AiChatHist>;
+	private aichatHist!: loki.Collection<AiChatHist>;
 	private randomTalkProbability: number = RANDOMTALK_DEFAULT_PROBABILITY;
 	private randomTalkIntervalMinutes: number = RANDOMTALK_DEFAULT_INTERVAL;
 	// ユーザーごとの最終 Gemini 呼び出し時刻
