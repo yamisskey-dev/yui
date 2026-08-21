@@ -26,6 +26,7 @@ export type Config = {
 	autoNoteDisableNightPosting?: boolean;
 	followAllowedHosts?: string[];
 	followExcludeInstances?: string[];
+	notingWeatherCityCode?: string;
 	mecab?: string;
 	mecabDic?: string;
 	memoryDir?: string;
