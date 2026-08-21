@@ -6,7 +6,7 @@
 		"start": "node ./built",
 		"start-daemon": "nodemon ./built",
 		"build": "tspc",
-		"test": "jest"
+		"test": "NODE_OPTIONS=--experimental-vm-modules jest"
 	},
 	"dependencies": {
 		"@types/chalk": "2.2.0",

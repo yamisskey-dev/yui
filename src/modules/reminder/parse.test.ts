@@ -1,9 +1,4 @@
-let parseTimeExpression: any;
-
-beforeAll(async () => {
-  const mod = await import('./parse.ts');
-  parseTimeExpression = mod.parseTimeExpression;
-});
+import { parseTimeExpression } from './parse.js';
 
 describe('parseTimeExpression', () => {
   test('parses "in 2 hours buy milk"', async () => {
