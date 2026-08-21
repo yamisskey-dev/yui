@@ -18,8 +18,6 @@ const ACTIONS = {
 
 const KEYWORDS = {
   FOLLOW: ['フォロー', 'フォロバ', 'follow me'],
-  MASTER_FOLLOW: ['follow'],
-  MASTER_UNFOLLOW: ['unfollow'],
 } as const;
 
 // Master用ユーザーコマンドの型定義
@@ -28,6 +26,9 @@ interface MasterUserCommand {
   targetUsername: string;
   targetHost?: string; // undefined for local users
 }
+
+// 1回の自動解除処理で unfollow する最大件数（API異常時の暴走アンフォロー対策）
+const UNFOLLOW_BATCH_LIMIT = 10;
 
 export default class extends Module {
   public readonly name = 'follow';
@@ -44,7 +45,23 @@ export default class extends Module {
 
   @bindThis
   private isMasterUser(msg: Message): boolean {
-    return msg.user.username === config.master && msg.user.host === null;
+    return msg.user?.username === config.master && msg.user?.host === null;
+  }
+
+  /**
+   * マスターが強制フォローしたユーザーID一覧（自動アンフォローから保護する）
+   */
+  @bindThis
+  private getProtectedFollowIds(): string[] {
+    const data = this.getData();
+    return Array.isArray(data.protectedFollowIds) ? data.protectedFollowIds : [];
+  }
+
+  @bindThis
+  private setProtectedFollowIds(ids: string[]) {
+    const data = this.getData();
+    data.protectedFollowIds = ids;
+    this.setData(data);
   }
 
   @bindThis
@@ -54,32 +71,41 @@ export default class extends Module {
     const mentionPattern = /@([a-zA-Z0-9_-]+)(?:@([a-zA-Z0-9.-]+))?/g;
     const matches = [...text.matchAll(mentionPattern)];
     const aiName = this.ai.account.username;
+    // `@yui@own.host` 形式でも自分自身を除外できるように自ホスト名を求めておく
+    let ownHost: string | undefined;
+    try {
+      ownHost = new URL(config.host).host;
+    } catch {
+      ownHost = undefined;
+    }
 
     return matches
       .map((match) => ({
         username: match[1],
         host: match[2] || undefined,
       }))
-      .filter((mention) => !(mention.username === aiName && !mention.host));
+      .filter(
+        (mention) =>
+          !(mention.username === aiName && (!mention.host || mention.host === ownHost))
+      );
   }
 
   @bindThis
   private parseMasterUserCommand(msg: Message): MasterUserCommand | null {
     if (!msg.text) return null;
 
-    const text = msg.text.toLowerCase();
-    let action: typeof ACTIONS.FOLLOW | typeof ACTIONS.UNFOLLOW | null = null;
+    // 先頭のメンション群を除いた本文が "follow" / "unfollow" で始まる場合のみ
+    // コマンドとみなす（"did you follow @alice?" のような文での誤発動を防ぐ）
+    const stripped = msg.text
+      .replace(/^(?:@[a-zA-Z0-9_-]+(?:@[a-zA-Z0-9.-]+)?\s*)+/, '')
+      .trim()
+      .toLowerCase();
 
-    // アクション判定
-    if (
-      KEYWORDS.MASTER_FOLLOW.some((keyword) => text.includes(keyword)) &&
-      !KEYWORDS.MASTER_UNFOLLOW.some((keyword) => text.includes(keyword))
-    ) {
-      action = ACTIONS.FOLLOW;
-    } else if (
-      KEYWORDS.MASTER_UNFOLLOW.some((keyword) => text.includes(keyword))
-    ) {
+    let action: typeof ACTIONS.FOLLOW | typeof ACTIONS.UNFOLLOW | null = null;
+    if (stripped.startsWith(ACTIONS.UNFOLLOW)) {
       action = ACTIONS.UNFOLLOW;
+    } else if (stripped.startsWith(ACTIONS.FOLLOW)) {
+      action = ACTIONS.FOLLOW;
     } else {
       return null;
     }
@@ -170,6 +196,11 @@ export default class extends Module {
       await this.ai.api('following/create', {
         userId: targetUser.id,
       });
+      // マスターの意思によるフォローは自動アンフォロー対象から保護する
+      const protectedIds = this.getProtectedFollowIds();
+      if (!protectedIds.includes(targetUser.id)) {
+        this.setProtectedFollowIds([...protectedIds, targetUser.id]);
+      }
       this.log(
         `Master forced follow: ${UserFormatter.formatUserForLog(targetUser)}`
       );
@@ -206,6 +237,9 @@ export default class extends Module {
       await this.ai.api('following/delete', {
         userId: targetUser.id,
       });
+      this.setProtectedFollowIds(
+        this.getProtectedFollowIds().filter((id) => id !== targetUser.id)
+      );
       this.log(
         `Master forced unfollow: ${UserFormatter.formatUserForLog(targetUser)}`
       );
@@ -347,46 +381,23 @@ export default class extends Module {
   ): boolean {
     // followAllowedHostsが存在する場合、followExcludeInstancesを無視する
     if (allowedHosts.length > 0) {
-      return this.isHostAllowed(host, allowedHosts);
+      return this.matchHost(host, allowedHosts);
     }
     // followAllowedHostsが存在しない場合、followExcludeInstancesを適用する
-    return !this.isHostExcluded(host, excludedHosts);
+    return !this.matchHost(host, excludedHosts);
   }
 
   /**
-   * ホストが許可されたホストリストに含まれるかどうかを判定する
-   * @param host ユーザーのホスト
-   * @param allowedHosts 許可されたホストのリスト
-   * @returns 許可された場合はtrue、そうでない場合はfalse
+   * ホストがパターンリストに一致するかどうかを判定する（`*` プレフィックスでワイルドカード）
    */
-  private isHostAllowed(host: string, allowedHosts: string[]): boolean {
-    for (const allowedHost of allowedHosts) {
-      if (allowedHost.startsWith('*')) {
-        const domain = allowedHost.slice(1);
+  private matchHost(host: string, patterns: string[]): boolean {
+    for (const pattern of patterns) {
+      if (pattern.startsWith('*')) {
+        const domain = pattern.slice(1);
         if (host.endsWith(domain)) {
           return true;
         }
-      } else if (host === allowedHost) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * ホストが除外されたホストリストに含まれるかどうかを判定する
-   * @param host ユーザーのホスト
-   * @param excludedHosts 除外されたホストのリスト
-   * @returns 除外された場合はtrue、そうでない場合はfalse
-   */
-  private isHostExcluded(host: string, excludedHosts: string[]): boolean {
-    for (const excludedHost of excludedHosts) {
-      if (excludedHost.startsWith('*')) {
-        const domain = excludedHost.slice(1);
-        if (host.endsWith(domain)) {
-          return true;
-        }
-      } else if (host === excludedHost) {
+      } else if (host === pattern) {
         return true;
       }
     }
@@ -399,32 +410,26 @@ export default class extends Module {
 
     try {
       const following = await this.fetchAllUsers('users/following');
-      this.log(
-        `Fetched ${following.length} following users: ${following
-          .map((u) => UserFormatter.formatUserForLog(u))
-          .join(', ')}`
-      );
+      this.log(`Fetched ${following.length} following users`);
 
       const followers = await this.fetchAllUsers('users/followers');
-      this.log(
-        `Fetched ${followers.length} followers: ${followers
-          .map((u) => UserFormatter.formatUserForLog(u))
-          .join(', ')}`
-      );
+      this.log(`Fetched ${followers.length} followers`);
 
-      const followerIds = followers.map((u) => u.id);
-      this.log(`Follower IDs: ${followerIds.join(', ')}`);
+      // サニティチェック: フォロー中は存在するのにフォロワーが1人も取れない場合、
+      // API 応答の異常（形式変化・障害）の可能性が高いので全解除せずに中断する
+      if (following.length > 0 && followers.length === 0) {
+        this.log(
+          'Aborting unfollow: followers list is empty while following list is not. Possibly an API issue.'
+        );
+        return;
+      }
+
+      const followerIds = new Set(followers.map((u) => u.id));
+      const protectedIds = new Set(this.getProtectedFollowIds());
 
       const usersToUnfollow = following.filter((u) => {
-        const isFollowedByBot = followerIds.includes(u.id);
-        if (!isFollowedByBot) {
-          this.log(
-            `User ${UserFormatter.formatUserForLog(
-              u
-            )} is followed by bot but not following back.`
-          );
-        }
-        return !isFollowedByBot;
+        if (protectedIds.has(u.id)) return false; // マスター強制フォローは保護
+        return !followerIds.has(u.id);
       });
       this.log(
         `Found ${usersToUnfollow.length} users to unfollow: ${usersToUnfollow
@@ -437,9 +442,15 @@ export default class extends Module {
         return;
       }
 
-      this.log(`Unfollowing ${usersToUnfollow.length} users...`);
+      // 1回の実行での解除件数を制限する（残りは次回実行で処理される）
+      const batch = usersToUnfollow.slice(0, UNFOLLOW_BATCH_LIMIT);
+      if (batch.length < usersToUnfollow.length) {
+        this.log(
+          `Unfollow batch limited to ${batch.length}/${usersToUnfollow.length} users.`
+        );
+      }
 
-      for (const user of usersToUnfollow) {
+      for (const user of batch) {
         try {
           await this.ai.api('following/delete', { userId: user.id });
           this.log(`Unfollowed ${UserFormatter.formatUserForLog(user)}`);
@@ -481,6 +492,12 @@ export default class extends Module {
         extractedUsers = responseItems
           .map((item) => (item as { follower: User }).follower)
           .filter((user) => user && user.id);
+      }
+      // 要素はあるのに1件も抽出できない場合はレスポンス形式が想定外。
+      // 黙って空リストを返すと呼び出し元が「フォロワー0」と誤認して
+      // 全員アンフォローしかねないため、明示的に失敗させる
+      if (extractedUsers.length === 0) {
+        throw new Error(`Unexpected response shape from ${endpoint}`);
       }
       allUsers = allUsers.concat(extractedUsers);
 
