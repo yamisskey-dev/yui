@@ -1,4 +1,5 @@
 import { bindThis } from '@/decorators.js';
+import config from '@/config.js';
 import Module from '@/module.js';
 import axios, { AxiosInstance } from 'axios';
 import { parseJstTimeString, toKmoniTimestamp } from './time.js';
@@ -169,6 +170,8 @@ class EarthquakeWarningModule extends Module {
 
 	@bindThis
 	public install() {
+		if (!config.earthquakeWarningEnabled) return {};
+
 		this.startMonitoring();
 		return {};
 	}

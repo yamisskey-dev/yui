@@ -1,4 +1,5 @@
 import { bindThis } from '@/decorators.js';
+import config from '@/config.js';
 import Module from '@/module.js';
 import serifs from '@/serifs.js';
 import { genMaze } from './gen-maze.js';
@@ -10,6 +11,8 @@ export default class extends Module {
 
 	@bindThis
 	public install() {
+		if (!config.mazeEnabled) return {};
+
 		this.post();
 		setInterval(this.post, 1000 * 60 * 3);
 

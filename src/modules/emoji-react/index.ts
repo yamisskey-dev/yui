@@ -1,4 +1,5 @@
 import { bindThis } from '@/decorators.js';
+import config from '@/config.js';
 import Module from '@/module.js';
 import Message from '@/message.js';
 import serifs from '@/serifs.js';
@@ -9,6 +10,8 @@ export default class extends Module {
 
 	@bindThis
 	public install() {
+		if (!config.emojiReactEnabled) return {};
+
 		return {
 			mentionHook: this.mentionHook
 		};

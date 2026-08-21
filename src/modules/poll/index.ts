@@ -11,6 +11,8 @@ export default class extends Module {
 
 	@bindThis
 	public install() {
+		if (!config.pollEnabled) return {};
+
 		setInterval(() => {
 			if (Math.random() < 0.1) {
 				this.post();
