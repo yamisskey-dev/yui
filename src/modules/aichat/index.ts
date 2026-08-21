@@ -12,7 +12,7 @@ import urlToBase64 from '@/utils/url2base64.js';
 import urlToJson from '@/utils/url2json.js';
 import got from 'got';
 import loki from 'lokijs';
-import { loadCustomEmojis, processEmojis } from '@/utils/emoji-selector.js';
+import { processEmojis } from '@/utils/emoji-selector.js';
 
 type AiChat = {
 	question: string;
@@ -133,8 +133,6 @@ export default class extends Module {
 	private aichatHist: loki.Collection<AiChatHist>;
 	private randomTalkProbability: number = RANDOMTALK_DEFAULT_PROBABILITY;
 	private randomTalkIntervalMinutes: number = RANDOMTALK_DEFAULT_INTERVAL;
-	private customEmojis: Set<string> = new Set(); // カスタム絵文字の名前をキャッシュ
-
 
 	@bindThis
 	public install() {
@@ -194,11 +192,6 @@ export default class extends Module {
 					: AUTO_NOTE_DEFAULT_PROBABILITY;
 			this.log('Gemini自動ノート投稿確率: probability=' + probability);
 		}
-
-		// カスタム絵文字の情報を取得
-		loadCustomEmojis(this.ai.api.bind(this.ai), this.log.bind(this)).then(set => {
-			this.customEmojis = set;
-		});
 
 		return {
 			mentionHook: this.mentionHook,
@@ -1061,7 +1054,7 @@ export default class extends Module {
 		}
 
 		// 絵文字処理を適用
-		text = processEmojis(text, this.customEmojis);
+		text = processEmojis(text);
 
 		// handleAiChat内で、msg.isChatがtrueの場合はtext末尾の (gemini) #aichat などを除去
 		if (msg.isChat && typeof text === 'string') {

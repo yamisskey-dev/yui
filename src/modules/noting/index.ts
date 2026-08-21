@@ -6,8 +6,7 @@ import config from '@/config.js';
 import axios from 'axios';
 import { weather_phrases } from '@/serifs.js';
 import got from 'got';
-import { processEmojis, loadCustomEmojis } from '@/utils/emoji-selector.js';
-import { getEmojiListForAI, selectEmoji, fetchEmojis, emojiMapping } from '@/utils/emoji-selector.js';
+import { processEmojis, getEmojiListForAI, selectEmoji, getCachedEmojis, emojiMapping } from '@/utils/emoji-selector.js';
 
 export default class extends Module {
 	public readonly name = 'noting';
@@ -280,8 +279,7 @@ export default class extends Module {
 			this.log(`[noting] Gemini生成note: ${geminiNote}`);
 
 				// 投稿前に:emoji:→Unicode/カスタム絵文字変換
-				const customEmojis = await loadCustomEmojis(this.ai.api.bind(this.ai), this.log.bind(this));
-				const processedNote = processEmojis(geminiNote, customEmojis);
+				const processedNote = processEmojis(geminiNote);
 			try {
 				await this.ai.post({
 					text: processedNote
@@ -322,7 +320,7 @@ export default class extends Module {
 
 	private async generateNoteWithGemini({ weather, situation, keywords }) {
 		// Misskeyカスタム絵文字リストを取得
-		const emojiList = await getEmojiListForAI();
+		const emojiList = getEmojiListForAI();
 		
 		// Gemini API本実装
 		const prompt = config.autoNotePrompt || config.prompt || 'あなたはMisskeyの女の子AI「唯」として振る舞い、天気や気温、空模様に合わせて自然な一言noteを生成してください。280文字以内。';
@@ -385,11 +383,11 @@ ${emojiList}`;
 					else if (negativeWords.some(w => text.includes(w))) mood = 'negative';
 					// 絵文字選択
 					if (mood === 'positive') {
-						weatherEmoji = await selectEmoji('happy');
+						weatherEmoji = selectEmoji('happy');
 					} else if (mood === 'negative') {
-						weatherEmoji = await selectEmoji('rainy');
+						weatherEmoji = selectEmoji('rainy');
 					} else {
-						weatherEmoji = await selectEmoji('default');
+						weatherEmoji = selectEmoji('default');
 					}
 					// note内に既に同じ絵文字が含まれていれば追加しない
 					if (!generatedNote.includes(weatherEmoji)) {
@@ -397,7 +395,7 @@ ${emojiList}`;
 					}
 				} else {
 					// AIが絵文字を使った場合、存在しない絵文字を置換
-					const emojis = await fetchEmojis();
+					const emojis = getCachedEmojis();
 					const existingEmojiNames = emojis.map(e => e.name);
 					const emojiRegex = /:([^:]+):/g;
 					let usedEmojis: string[] = [];

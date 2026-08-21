@@ -63,7 +63,7 @@ export default class extends Module {
 		if (msg.includes(['おみくじ', 'omikuji', '占い'])) {
 			const omikuji = this.genOmikuji();
 			const item = genItem();
-			const emoji = await selectEmoji('celebration');
+			const emoji = selectEmoji('celebration');
 			msg.reply(`**${omikuji}${emoji}**\nラッキーアイテム: ${item}`, {
 				immediate: true
 			});

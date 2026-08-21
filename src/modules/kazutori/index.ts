@@ -56,7 +56,7 @@ export default class extends Module {
 		if (id && this.isAlreadyResponded(id)) return false;
 		if (msg.includes(['数取り', 'かずとり', 'kazutori'])) {
 			const numbers = this.genNumbers();
-			const icon = await selectEmoji('game');
+			const icon = selectEmoji('game');
 			msg.reply(`**数取りゲーム${icon}**\n${numbers.join(' ')}`, {
 				immediate: true
 			});

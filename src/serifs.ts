@@ -10,8 +10,8 @@ export default {
 
 		yesOrNo: '「はい」か「いいえ」しかわからないんです...',
 
-		hello: async name => {
-			const emoji = await selectEmoji('greeting');
+		hello: name => {
+			const emoji = selectEmoji('greeting');
 			return name ? `こんにちは、${name}♪ ${emoji}` : `こんにちは♪ ${emoji}`;
 		},
 
@@ -169,8 +169,8 @@ export default {
 	},
 
 	birthday: {
-		happyBirthday: async (name?: string) => {
-			const emoji = await selectEmoji('birthday');
+		happyBirthday: (name?: string) => {
+			const emoji = selectEmoji('birthday');
 			return name ? `お誕生日おめでとうございます、${name} ${emoji}` : `お誕生日おめでとうございます ${emoji}`;
 		},
 	},
@@ -321,12 +321,8 @@ export default {
 		graterAgain: (num: string) => `もう一度言いますが${num}より大きいですよ！`,
 		less: (num: string) => `${num}より小さいですね`,
 		lessAgain: (num: string) => `もう一度言いますが${num}より小さいですよ！`,
-		correct: async (tries: number) => {
-			const emoji = await selectEmoji('win');
-			return `正解です${emoji} (${tries}回目で当てました)`;
-		},
-		congrats: async (tries: string) => {
-			const emoji = await selectEmoji('win');
+		congrats: (tries: string) => {
+			const emoji = selectEmoji('win');
 			return `正解です${emoji} (${tries}回目で当てました)`;
 		},
 		high: 'もっと小さい数字です',

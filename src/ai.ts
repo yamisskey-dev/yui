@@ -16,6 +16,7 @@ import type { User } from '@/misskey/user.js';
 import Stream from '@/stream.js';
 import log from '@/utils/log.js';
 import { sleep } from './utils/sleep.js';
+import { initEmojiCache } from '@/utils/emoji-selector.js';
 import pkg from '../package.json' with { type: 'json' };
 
 type MentionHook = (msg: Message) => Promise<boolean | HandlerResult>;
@@ -250,6 +251,12 @@ export default class 唯 {
 			}
 		});
 		//#endregion
+
+		// カスタム絵文字キャッシュの初期化と定期更新
+		initEmojiCache(this.api, this.log).catch(e => this.log(`Failed to init emoji cache: ${e}`));
+		setInterval(() => {
+			initEmojiCache(this.api, this.log).catch(e => this.log(`Failed to refresh emoji cache: ${e}`));
+		}, 1000 * 60 * 60 * 24);
 
 		// Install modules
 		this.modules.forEach(m => {
