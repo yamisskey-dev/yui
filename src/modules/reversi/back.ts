@@ -11,6 +11,7 @@ import * as Reversi from './engine.js';
 import config from '@/config.js';
 import serifs from '@/serifs.js';
 import type { User } from '@/misskey/user.js';
+import { getStrengthText } from './strength.js';
 
 function getUserName(user) {
 	return user.name || user.username;
@@ -426,20 +427,6 @@ class Session {
 	}
 
 	/**
-	 * 数値の強さを文字表現に変換
-	 */
-	private getStrengthText(strength: number): string {
-		switch (strength) {
-			case 0: return '接待';
-			case 2: return '弱';
-			case 3: return '中';
-			case 4: return '強';
-			case 5: return '最強';
-			default: return '強';
-		}
-	}
-
-	/**
 	 * 対局が始まったことをMisskeyに投稿します
 	 */
 	private postGameStarted = async () => {
@@ -447,7 +434,7 @@ class Session {
 		// それ以外は強さを文字表現に変換して「」で囲んで表示
 		const text = this.isSettai
 			? serifs.reversi.startedSettai(this.userName)
-			: serifs.reversi.started(this.userName, `「${this.getStrengthText(this.strength)}」`);
+			: serifs.reversi.started(this.userName, `「${getStrengthText(this.strength)}」`);
 
 		return await this.post(`${text}\n→[観戦する](${this.url})`);
 	}
