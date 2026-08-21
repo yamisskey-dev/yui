@@ -23,7 +23,7 @@ export const itemPrefixes = [
 	'Microsoft製',
 	'Apple製',
 	'人類の技術を結集して作った',
-	() => `${Math.floor(Math.random() * 50) + 1970}年製`, // ランダム年号
+	(rng: () => number) => `${Math.floor(rng() * 50) + 1970}年製`, // ランダム年号
 	'500kgくらいある',
 	'高級',
 	'腐った',
@@ -465,12 +465,18 @@ export function genItem(seedOrRng?: (() => number) | string | number) {
 			: seedrandom(seedOrRng.toString())
 		: Math.random;
 
+	// プレフィックスは文字列のほか、rng を受け取って文字列を返す関数も許容する
+	const pickPrefix = () => {
+		const prefix = itemPrefixes[Math.floor(rng() * itemPrefixes.length)];
+		return typeof prefix === 'function' ? prefix(rng) : prefix;
+	};
+
 	let item = '';
-	if (Math.floor(rng() * 5) !== 0) item += itemPrefixes[Math.floor(rng() * itemPrefixes.length)];
+	if (Math.floor(rng() * 5) !== 0) item += pickPrefix();
 	item += items[Math.floor(rng() * items.length)];
 	if (Math.floor(rng() * 10) === 0) {
 		item += and[Math.floor(rng() * and.length)];
-		if (Math.floor(rng() * 5) !== 0) item += itemPrefixes[Math.floor(rng() * itemPrefixes.length)];
+		if (Math.floor(rng() * 5) !== 0) item += pickPrefix();
 		item += items[Math.floor(rng() * items.length)];
 	}
 	return item;
