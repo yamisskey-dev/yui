@@ -61,15 +61,27 @@ export function renderChart(chart: Chart) {
 	const xAxisCount = chart.datasets[0].data.length;
 	const serieses = chart.datasets.length;
 
-	// データの範囲計算（0を必ず含める）
-	let lowerBound = Math.min(0, ...chart.datasets.flatMap(dataset => dataset.data));
-	let upperBound = Math.max(0, ...chart.datasets.flatMap(dataset => dataset.data));
+	// データの範囲計算（積み上げ表示のため、各X位置での正側合計・負側合計で範囲を取る。0を必ず含める）
+	let lowerBound = 0;
+	let upperBound = 0;
+	for (let xAxis = 0; xAxis < xAxisCount; xAxis++) {
+		let positiveSum = 0;
+		let negativeSum = 0;
+		for (const dataset of chart.datasets) {
+			const value = dataset.data[xAxis] ?? 0;
+			if (value >= 0) positiveSum += value;
+			else negativeSum += value;
+		}
+		upperBound = Math.max(upperBound, positiveSum);
+		lowerBound = Math.min(lowerBound, negativeSum);
+	}
 
 	// Y軸のスケール計算
 	const yAxisSteps = niceScale(lowerBound, upperBound, yAxisTicks);
 	const yAxisStepsMin = yAxisSteps[0];
 	const yAxisStepsMax = yAxisSteps[yAxisSteps.length - 1];
-	const yAxisRange = yAxisStepsMax - yAxisStepsMin;
+	// 全データが0のときの 0 除算（NaN/Infinity 座標で描画が壊れる）を防ぐ
+	const yAxisRange = (yAxisStepsMax - yAxisStepsMin) || 1;
 
 	// 0の位置をY軸上で計算
 	const zeroY = chartAreaY + chartAreaHeight * (yAxisStepsMax / yAxisRange);
@@ -104,40 +116,35 @@ export function renderChart(chart: Chart) {
 		ctx.fillText(step.toString(), chartAreaX - 40, y);
 	}
 
-	// データセットの正規化
-	const normalizedDatasets = chart.datasets.map(dataset => ({
-		data: dataset.data.map(value => value / yAxisRange)
-	}));
-
 	const perXAxisWidth = chartAreaWidth / xAxisCount;
 
-	// 正規化された最大値の計算
-	const normalizedMax = Math.max(
-		...normalizedDatasets.flatMap(dataset => dataset.data)
-	);
-
-	// データの描画
+	// データの描画（0基準線から正側・負側それぞれに積み上げる。
+	// 重ね描きだと大きい series が小さい series を隠してしまう）
 	ctx.lineWidth = lineWidth;
 	ctx.lineCap = 'round';
 
 	for (let xAxis = 0; xAxis < xAxisCount; xAxis++) {
 		const x = chartAreaX + (perXAxisWidth * ((xAxisCount - 1) - xAxis)) + (perXAxisWidth / 2);
-			
-		// 各シリーズの高さを計算
-		const seriesHeights = normalizedDatasets.map(dataset => {
-			const value = dataset.data[xAxis];
-			return Math.abs(value) * chartAreaHeight;
-		});
 
-			// シリーズごとの描画
-		for (let series = serieses - 1; series >= 0; series--) {
+		let positiveOffset = 0;
+		let negativeOffset = 0;
+
+		for (let series = 0; series < serieses; series++) {
 			ctx.strokeStyle = colors.dataset[series % colors.dataset.length];
-			const originalValue = chart.datasets[series].data[xAxis];
-					
-			// 正と負の値で異なる描画処理
-			const height = seriesHeights[series];
-			const y = originalValue >= 0 ? zeroY - height : zeroY;
-			const yEnd = originalValue >= 0 ? zeroY : zeroY + height;
+			const originalValue = chart.datasets[series].data[xAxis] ?? 0;
+			const barHeight = (Math.abs(originalValue) / yAxisRange) * chartAreaHeight;
+
+			let y: number;
+			let yEnd: number;
+			if (originalValue >= 0) {
+				yEnd = zeroY - positiveOffset;
+				y = yEnd - barHeight;
+				positiveOffset += barHeight;
+			} else {
+				y = zeroY + negativeOffset;
+				yEnd = y + barHeight;
+				negativeOffset += barHeight;
+			}
 
 			ctx.globalAlpha = 1 - (xAxis / xAxisCount);
 			ctx.beginPath();

@@ -1,9 +1,4 @@
-let parseTimeExpression: any;
-
-beforeAll(async () => {
-  const mod = await import('./parse.ts');
-  parseTimeExpression = mod.parseTimeExpression;
-});
+import { parseTimeExpression } from './parse.js';
 
 describe('parseTimeExpression', () => {
   test('parses "in 2 hours buy milk"', async () => {
@@ -30,6 +25,11 @@ describe('parseTimeExpression', () => {
   test('returns null when no time expression', async () => {
     const input = 'just some random note';
     const res = await parseTimeExpression(input);
+    expect(res).toBeNull();
+  });
+
+  test('先頭以外の時刻表現は時刻指定として扱わない（本文が削られない）', async () => {
+    const res = await parseTimeExpression('buy milk in 2 hours');
     expect(res).toBeNull();
   });
 });

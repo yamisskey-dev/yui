@@ -16,6 +16,7 @@ import type { User } from '@/misskey/user.js';
 import Stream from '@/stream.js';
 import log from '@/utils/log.js';
 import { sleep } from './utils/sleep.js';
+import { initEmojiCache } from '@/utils/emoji-selector.js';
 import pkg from '../package.json' with { type: 'json' };
 
 type MentionHook = (msg: Message) => Promise<boolean | HandlerResult>;
@@ -213,7 +214,8 @@ export default class 唯 {
 			} else {
 				// Room chat handling: connect to chatRoom channel and proxy incoming messages
 				try {
-					const roomId = (data as any).roomId || (data as any).channelId || null;
+					// misskey-js の ChatMessage ではルームIDは toRoomId（旧フィールド名もフォールバックで見る）
+					const roomId = (data as any).toRoomId || (data as any).roomId || null;
 					if (roomId) {
 						const roomStream = this.connection.connectToChannel('chatRoom', {
 							roomId: roomId,
@@ -251,6 +253,12 @@ export default class 唯 {
 		});
 		//#endregion
 
+		// カスタム絵文字キャッシュの初期化と定期更新
+		initEmojiCache(this.api, this.log).catch(e => this.log(`Failed to init emoji cache: ${e}`));
+		setInterval(() => {
+			initEmojiCache(this.api, this.log).catch(e => this.log(`Failed to refresh emoji cache: ${e}`));
+		}, 1000 * 60 * 60 * 24);
+
 		// Install modules
 		this.modules.forEach(m => {
 			this.log(`Installing ${chalk.cyan.italic(m.name)}\tmodule...`);
@@ -278,12 +286,13 @@ export default class 唯 {
 	 */
 	@bindThis
 	private async onReceiveMessage(msg: Message): Promise<void> {
-		// TODO: 改善提案
-		// - メッセージの優先度付けシステム
-		// - スパム対策の強化
-		// - メッセージ処理の並列化
-		// - エラーハンドリングの改善
 		this.log(chalk.gray(`<<< An message received: ${chalk.underline(msg.id)}`));
+
+		// ユーザーを解決できないメッセージは処理できない
+		// （room chat 経路などで fromUser が取得できない場合がある）
+		if (msg.user == null) {
+			return;
+		}
 
 		// Ignore message if the user is a bot
 		// To avoid infinity reply loop.
@@ -348,7 +357,7 @@ export default class 唯 {
 			// 何もしない
 		} else {
 			// リアクションする
-			if (reaction) {
+			if (reaction && msg.id) {
 				this.api('notes/reactions/create', {
 					noteId: msg.id,
 					reaction: reaction

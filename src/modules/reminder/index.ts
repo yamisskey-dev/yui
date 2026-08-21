@@ -5,7 +5,6 @@ import serifs, { getSerif } from '@/serifs.js';
 import { acct } from '@/utils/acct.js';
 import config from '@/config.js';
 import { parseTimeExpression } from './parse.js';
-import type { ParseResult } from './parse.js';
 
 const NOTIFY_INTERVAL = 1000 * 60 * 60 * 12;
 
@@ -13,24 +12,24 @@ type RemindRecord = { userId: string; id: string; isChat: boolean; thing: string
 
 // Minimal interface for a collection to avoid depending on lokijs types
 interface MinimalCollection<T> {
-  find(query?: Partial<T> | any): T[];
-  findOne(query?: Partial<T> | any): T | null;
-  insertOne(doc: T): T;
-  update(doc: T): void;
-  remove(doc: T): void;
-  findAndRemove?(query: Partial<T> | any): void;
+	find(query?: Partial<T> | any): T[];
+	findOne(query?: Partial<T> | any): T | null;
+	insertOne(doc: T): T;
+	update(doc: T): void;
+	remove(doc: T): void;
+	findAndRemove?(query: Partial<T> | any): void;
 }
 
 export default class Reminder extends Module {
-  public readonly name = 'reminder';
+	public readonly name = 'reminder';
 
-  private reminds!: MinimalCollection<RemindRecord>;
+	private reminds!: MinimalCollection<RemindRecord>;
 
-@bindThis
-public install() {
-this.reminds = this.ai.getCollection('reminds', {
-indices: ['userId', 'id']
-});
+	@bindThis
+	public install() {
+		this.reminds = this.ai.getCollection('reminds', {
+			indices: ['userId', 'id']
+		});
 
 		return {
 			mentionHook: this.mentionHook,
@@ -39,10 +38,10 @@ indices: ['userId', 'id']
 		};
 	}
 
-@bindThis
-private async mentionHook(msg: Message) {
-let text = msg.extractedText.toLowerCase();
-if (!text.startsWith('remind') && !text.startsWith('todo')) return false;
+	@bindThis
+	private async mentionHook(msg: Message) {
+		let text = msg.extractedText.toLowerCase();
+		if (!text.startsWith('remind') && !text.startsWith('todo')) return false;
 
 		if (text.startsWith('reminds') || text.startsWith('todos')) {
 			const reminds = this.reminds.find({
@@ -55,27 +54,26 @@ if (!text.startsWith('remind') && !text.startsWith('todo')) return false;
 			return true;
 		}
 
+		// コマンド語（remind / todo）を落とし、残りを内容とする
 		if (text.match(/^(.+?)\s(.+)/)) {
 			text = text.replace(/^(.+?)\s/, '');
 		} else {
 			text = '';
 		}
 
+		// 内容の先頭に時刻表現があればそれを予定時刻として解釈する
+		// 例: "in 2 hours buy milk", "tomorrow 09:00 meeting"
+		const timeParse = await parseTimeExpression(text);
+		let thing: string;
+		let scheduledAt: number | null = null;
+		if (timeParse) {
+			scheduledAt = timeParse.when;
+			thing = timeParse.text.trim();
+		} else {
+			thing = text.trim();
+		}
 
- // simple parsing: support optional time expressions at the start like:
- // "in 2 hours buy milk", "tomorrow 09:00 meeting", "at 14:30 call"
- const timeParse = await parseTimeExpression(text);
- let thing: string | null = null;
- let scheduledAt: number | null = null;
- if (timeParse) {
-   scheduledAt = timeParse.when;
-   thing = timeParse.text.trim();
- } else {
-   const separatorIndex = text.indexOf(' ') > -1 ? text.indexOf(' ') : text.indexOf('\n');
-   thing = text.substr(separatorIndex + 1).trim();
- }
-
-		// フォロワー限定チェックを削除し、内容が空でかつ引用もない場合のみ無効とする
+		// フォロワー限定チェックは行わず、内容が空でかつ引用もない場合のみ無効とする
 		if (thing === '' && msg.quoteId == null) {
 			msg.reply(serifs.reminder.invalid);
 			return {
@@ -95,25 +93,24 @@ if (!text.startsWith('remind') && !text.startsWith('todo')) return false;
 		});
 
 		// メンションをsubscribe
-this.subscribeReply(remind.id, msg.isChat, msg.isChat ? msg.userId : msg.id, {
-id: remind.id
-});
+		this.subscribeReply(remind.id, msg.isChat, msg.isChat ? msg.userId : msg.id, {
+			id: remind.id
+		});
 
 		if (msg.quoteId) {
 			// 引用元をsubscribe
-this.subscribeReply(remind.id, false, msg.quoteId, {
-id: remind.id
-});
+			this.subscribeReply(remind.id, false, msg.quoteId, {
+				id: remind.id
+			});
 		}
 
-
 		// タイマーセット: scheduledAt があればそこに、それ以外はデフォルト間隔
-if (scheduledAt) {
-const delay = Math.max(0, scheduledAt - Date.now());
-this.setTimeoutWithPersistence(delay, { id: remind.id });
-} else {
-this.setTimeoutWithPersistence(NOTIFY_INTERVAL, { id: remind.id });
-}
+		if (scheduledAt) {
+			const delay = Math.max(0, scheduledAt - Date.now());
+			this.setTimeoutWithPersistence(delay, { id: remind.id });
+		} else {
+			this.setTimeoutWithPersistence(NOTIFY_INTERVAL, { id: remind.id });
+		}
 
 		return {
 			reaction: '🆗',
@@ -121,9 +118,9 @@ this.setTimeoutWithPersistence(NOTIFY_INTERVAL, { id: remind.id });
 		};
 	}
 
-@bindThis
-private async contextHook(key: any, msg: Message, data: any) {
-if (msg.text == null) return;
+	@bindThis
+	private async contextHook(key: any, msg: Message, data: any) {
+		if (msg.text == null) return;
 
 		const remind = this.reminds.findOne({
 			id: data.id,
@@ -152,11 +149,11 @@ if (msg.text == null) return;
 		}
 	}
 
-@bindThis
-private async timeoutCallback(data) {
-const remind = this.reminds.findOne({
-id: data.id
-});
+	@bindThis
+	private async timeoutCallback(data) {
+		const remind = this.reminds.findOne({
+			id: data.id
+		});
 		if (remind == null) return;
 
 		remind.times++;
@@ -196,14 +193,4 @@ id: data.id
 			id: remind.id,
 		});
 	}
-
-	/**
-	 * Parse very simple time expressions at the start of the text.
-	 * Supported patterns:
-	 * - in (\d+) hours? <text>
-	 * - tomorrow HH:MM <text>
-	 * - at HH:MM <text>
-	 */
-	// parseTimeExpression は外部 util に移動しました
-
 }

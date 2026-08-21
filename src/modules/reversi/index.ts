@@ -8,6 +8,7 @@ import Friend from '@/friend.js';
 import getDate from '@/utils/get-date.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { getStrengthText, DEFAULT_STRENGTH } from './strength.js';
 
 const _filename = fileURLToPath(import.meta.url);
 const _dirname = dirname(_filename);
@@ -19,10 +20,10 @@ export default class extends Module {
 	 * リバーシストリーム
 	 */
 	private reversiConnection?: any;
-  /**
-   * ユーザーごとの難易度設定を一時保存するマップ
-  */
-  private pendingGames?: Map<string, number>;
+	/**
+	 * ユーザーごとの難易度設定を一時保存するマップ
+	 */
+	private pendingGames = new Map<string, number>();
 
 	@bindThis
 	public install() {
@@ -56,11 +57,11 @@ export default class extends Module {
 	private async mentionHook(msg: Message) {
 		if (msg.includes(['リバーシ', 'オセロ', 'reversi', 'othello'])) {
 			if (config.reversiEnabled) {
-				// 難易度を検出（デフォルト値は4）
+				// 難易度を検出
 				let strength = this.detectStrength(msg);
 				
 				// 難易度の文字表現を取得
-				const strengthText = this.getStrengthText(strength);
+				const strengthText = getStrengthText(strength);
 				
 				// 難易度情報を含めた返信
 				msg.reply(`${serifs.reversi.ok} 強さは「${strengthText}」で対戦します！`);
@@ -71,8 +72,7 @@ export default class extends Module {
 					friend.updateReversiStrength(strength);
 				}
 
-				// グローバルなマップに一時保存
-				if (!this.pendingGames) this.pendingGames = new Map();
+				// マッチ成立時に参照する難易度を一時保存
 				this.pendingGames.set(msg.userId, strength);
 
 				this.ai.api('reversi/match', {
@@ -89,31 +89,16 @@ export default class extends Module {
 	}
 
 	/**
-	 * メッセージから強さを検出
+	 * メッセージから強さを検出（指定がなければ DEFAULT_STRENGTH）
 	 */
 	@bindThis
 	private detectStrength(msg: Message): number {
 		if (msg.includes(['接待'])) return 0;
-		if (msg.includes(['弱'])) return 2;
-		if (msg.includes(['中'])) return 3;
-		if (msg.includes(['強']) && !msg.includes(['最強'])) return 4;
 		if (msg.includes(['最強'])) return 5;
-		return 2; // デフォルト値
-	}
-
-	/**
-	 * 数値の強さを文字表現に変換
-	 */
-	@bindThis
-	private getStrengthText(strength: number): string {
-		switch (strength) {
-			case 0: return '接待';
-			case 2: return '弱';
-			case 3: return '中';
-			case 4: return '強';
-			case 5: return '最強';
-			default: return '強';
-		}
+		if (msg.includes(['弱'])) return 2;
+		if (msg.includes(['強'])) return 4;
+		if (msg.includes(['中'])) return 3;
+		return DEFAULT_STRENGTH;
 	}
 
 	@bindThis
@@ -140,16 +125,16 @@ export default class extends Module {
 		const opponentId = game.user1Id !== this.ai.account.id ? game.user1Id : game.user2Id;
 		
 		// 1. 一時保存から難易度を取得（コマンドで直接指定された場合）
-		let strength = 2;
-		if (this.pendingGames && this.pendingGames.has(opponentId)) {
-			strength = this.pendingGames.get(opponentId) ?? 2;
+		let strength = DEFAULT_STRENGTH;
+		if (this.pendingGames.has(opponentId)) {
+			strength = this.pendingGames.get(opponentId) ?? DEFAULT_STRENGTH;
 			this.pendingGames.delete(opponentId);
 		} 
 		// 2. 一時保存になければフレンド情報から取得
 		else {
 			const friend = this.ai.lookupFriend(opponentId);
 			if (friend != null) {
-				strength = friend.doc.reversiStrength ?? 2;
+				strength = friend.doc.reversiStrength ?? DEFAULT_STRENGTH;
 				friend.updateReversiStrength(null);
 			}
 		}

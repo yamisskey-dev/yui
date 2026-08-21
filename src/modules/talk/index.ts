@@ -65,7 +65,7 @@ export default class extends Module {
 			.substr(1);
 
 		if (msg.includes(['こんにちは', 'こんにちわ'])) {
-			msg.reply(await serifs.core.hello(msg.friend.name));
+			msg.reply(serifs.core.hello(msg.friend.name));
 			incLove();
 			return true;
 		}

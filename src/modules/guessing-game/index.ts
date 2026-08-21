@@ -113,7 +113,7 @@ export default class extends Module {
 				: serifs.guessingGame.graterAgain(g.toString());
 		} else {
 			end = true;
-			text = await serifs.guessingGame.congrats(exist.tries.length.toString());
+			text = serifs.guessingGame.congrats(exist.tries.length.toString());
 		}
 
 		if (end) {

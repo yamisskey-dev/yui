@@ -10,8 +10,8 @@ export default {
 
 		yesOrNo: '「はい」か「いいえ」しかわからないんです...',
 
-		hello: async name => {
-			const emoji = await selectEmoji('greeting');
+		hello: name => {
+			const emoji = selectEmoji('greeting');
 			return name ? `こんにちは、${name}♪ ${emoji}` : `こんにちは♪ ${emoji}`;
 		},
 
@@ -169,8 +169,8 @@ export default {
 	},
 
 	birthday: {
-		happyBirthday: async (name?: string) => {
-			const emoji = await selectEmoji('birthday');
+		happyBirthday: (name?: string) => {
+			const emoji = selectEmoji('birthday');
 			return name ? `お誕生日おめでとうございます、${name} ${emoji}` : `お誕生日おめでとうございます ${emoji}`;
 		},
 	},
@@ -311,7 +311,6 @@ export default {
 	 * 数当てゲーム
 	 */
 	guessingGame: {
-		start: '数当てゲームを始めます！1から100までの数字を当ててください。',
 		started: '0~100の秘密の数を当ててみてください♪',
 		plzDm: 'メッセージでやりましょう！',
 		alreadyStarted: 'え、ゲームは既に始まってますよ！',
@@ -321,17 +320,10 @@ export default {
 		graterAgain: (num: string) => `もう一度言いますが${num}より大きいですよ！`,
 		less: (num: string) => `${num}より小さいですね`,
 		lessAgain: (num: string) => `もう一度言いますが${num}より小さいですよ！`,
-		correct: async (tries: number) => {
-			const emoji = await selectEmoji('win');
+		congrats: (tries: string) => {
+			const emoji = selectEmoji('win');
 			return `正解です${emoji} (${tries}回目で当てました)`;
 		},
-		congrats: async (tries: string) => {
-			const emoji = await selectEmoji('win');
-			return `正解です${emoji} (${tries}回目で当てました)`;
-		},
-		high: 'もっと小さい数字です',
-		low: 'もっと大きい数字です',
-		end: 'ゲーム終了です',
 	},
 
 	/**
@@ -440,6 +432,8 @@ export default {
 		nothing: `あぅ... APIキーが登録されてないみたいです`,
 		error: `うぇ...エラーが発生しちゃったみたいです。`,
 		post: (text) => `${text} #aichat`,
+		endChat: 'aichatを終了しました。また何かあればお声がけくださいね！',
+		endChatGuide: '💡 チャット中に「aichat 終了」「aichat 終わり」「aichat やめる」「aichat 止めて」のいずれかと送信すると会話を終了できます。',
 	},
 
   follow: {
@@ -462,36 +456,6 @@ export default {
 	},
 
 	noting: {
-		/**
-		 * 季節に応じたセリフ
-		 */
-		seasonal: {
-			spring: [
-				'桜が綺麗ですね♪',
-				'春ですね〜、暖かくなってきました',
-				'花粉症の季節ですね...',
-				'新年度、頑張りましょう！',
-			],
-			summer: [
-				'暑いですね〜、アイス食べたいです',
-				'夏休み、楽しみですね♪',
-				'クーラーが効いてて気持ちいいです',
-				'夏祭り、行きたいなぁ...',
-			],
-			autumn: [
-				'秋ですね〜、紅葉が綺麗です',
-				'食欲の秋です♪',
-				'読書の秋ですね',
-				'スポーツの秋、運動しましょう！',
-			],
-			winter: [
-				'寒いですね〜、温かい飲み物が恋しいです',
-				'雪が降ると綺麗ですね',
-				'冬休み、楽しみですね♪',
-				'お鍋が美味しい季節です',
-			],
-		},
-
 		notes: [
 			'ゴロゴロ…',
 			'ちょっと眠いです',

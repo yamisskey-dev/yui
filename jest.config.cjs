@@ -7,16 +7,12 @@ module.exports = {
   testPathIgnorePatterns: ['<rootDir>/built/'],
   // Treat TypeScript files as ESM
   extensionsToTreatAsEsm: ['.ts'],
-  globals: {
-    'ts-jest': {
-      useESM: true,
-      tsconfig: 'tsconfig.json'
-    }
+  // ソースの `import ... from './foo.js'` 規約を .ts に解決する
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
-  // No moduleNameMapper for local .ts imports; rely on ts-jest resolver
-  // moduleNameMapper: { ... }
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', { useESM: true }]
+    '^.+\\.(ts|tsx)$': ['ts-jest', { useESM: true, tsconfig: 'tsconfig.json' }]
   },
   // Ensure node_modules are ignored by default transformers
   transformIgnorePatterns: ['/node_modules/']

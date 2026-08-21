@@ -42,28 +42,59 @@ export default class extends Module {
 	}
 
 	@bindThis
-	private genNumbers(): number[] {
-		const numbers: number[] = [];
-		for (let i = 0; i < 10; i++) {
-			numbers.push(Math.floor(Math.random() * 100) + 1);
-		}
-		return numbers;
-	}
-
-	@bindThis
 	private async mentionHook(msg: Message) {
 		const id = msg.id;
 		if (id && this.isAlreadyResponded(id)) return false;
-		if (msg.includes(['数取り', 'かずとり', 'kazutori'])) {
-			const numbers = this.genNumbers();
-			const icon = await selectEmoji('game');
-			msg.reply(`**数取りゲーム${icon}**\n${numbers.join(' ')}`, {
-				immediate: true
+		if (!msg.includes(['数取り', 'かずとり', 'kazutori'])) return false;
+		if (id) this.markResponded(id);
+
+		const games = this.games.find({});
+
+		const recentGame = games.length == 0 ? null : games[games.length - 1];
+
+		if (recentGame) {
+			// 現在アクティブなゲームがある場合
+			if (!recentGame.isEnded) {
+				msg.reply(serifs.kazutori.alreadyStarted, {
+					renote: recentGame.postId
+				});
+				return true;
+			}
+
+			// 直近のゲームから1時間経ってない場合
+			if (Date.now() - recentGame.startedAt < 1000 * 60 * 60) {
+				msg.reply(serifs.kazutori.matakondo);
+				return true;
+			}
+		}
+
+		const icon = selectEmoji('game');
+		let post: any;
+		try {
+			post = await this.ai.post({
+				text: `${serifs.kazutori.intro(limitMinutes)} ${icon}`
 			});
-			if (id) this.markResponded(id);
+		} catch (e) {
+			this.log('Failed to start kazutori game: ' + e);
 			return true;
 		}
-		return false;
+		if (post?.id == null) {
+			this.log('Failed to start kazutori game: post id is missing');
+			return true;
+		}
+
+		this.games.insertOne({
+			votes: [],
+			isEnded: false,
+			startedAt: Date.now(),
+			postId: post.id
+		});
+
+		this.subscribeReply(null, false, post.id);
+
+		this.log('New kazutori game started');
+
+		return true;
 	}
 
 	@bindThis
