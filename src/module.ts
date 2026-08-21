@@ -1,5 +1,6 @@
 import { bindThis } from '@/decorators.js';
 import 唯, { InstallerResult } from '@/ai.js';
+import config from '@/config.js';
 
 // 応答済みIDの保持上限（超えたら古いものから破棄）
 const RESPONDED_ID_LIMIT = 10000;
@@ -34,6 +35,33 @@ export default abstract class Module {
 	protected log(msg: string) {
 		this.ai.log(`[${this.name}]: ${msg}`);
 	}
+
+	/**
+	 * マスター（config.master）にダイレクトメッセージで通知します。
+	 * master が未設定、またはユーザー解決に失敗した場合はログのみ残します。
+	 */
+	@bindThis
+	protected async notifyMaster(text: string) {
+		if (!config.master) {
+			this.log(`master 未設定のため通知をスキップ: ${text}`);
+			return;
+		}
+		try {
+			if (this.masterUserId == null) {
+				const user = await this.ai.api('users/show', { username: config.master }) as { id?: string };
+				this.masterUserId = user?.id ?? null;
+			}
+			if (this.masterUserId) {
+				await this.ai.sendMessage(this.masterUserId, { text });
+			} else {
+				this.log(`master ユーザーを解決できないため通知をスキップ: ${text}`);
+			}
+		} catch (e) {
+			this.log(`master への通知に失敗: ${e}`);
+		}
+	}
+
+	private masterUserId: string | null = null;
 
 	/**
 	 * コンテキストを生成し、ユーザーからの返信を待ち受けます
