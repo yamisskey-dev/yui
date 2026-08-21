@@ -27,4 +27,9 @@ describe('parseTimeExpression', () => {
     const res = await parseTimeExpression(input);
     expect(res).toBeNull();
   });
+
+  test('先頭以外の時刻表現は時刻指定として扱わない（本文が削られない）', async () => {
+    const res = await parseTimeExpression('buy milk in 2 hours');
+    expect(res).toBeNull();
+  });
 });
