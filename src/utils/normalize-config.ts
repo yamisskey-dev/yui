@@ -23,6 +23,7 @@ export type Config = {
 	aichatGroundingWithGoogleSearchAlwaysEnabled?: boolean;
 	geminiApiKey?: string;
 	geminiModel?: string;
+	geminiGroundingModel?: string;
 	geminiPostMode?: string;
 	autoNotePrompt?: string;
 	autoNoteIntervalMinutes?: number;
