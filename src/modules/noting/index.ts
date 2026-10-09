@@ -5,6 +5,7 @@ import axios from 'axios';
 import got from 'got';
 import { weather_phrases } from '@/serifs.js';
 import { processEmojis, getEmojiListForAI, selectEmoji, getCachedEmojis, emojiMapping } from '@/utils/emoji-selector.js';
+import { buildAutoNotePrompt } from '@/modules/aichat/prompt.js';
 import { determinePhraseKey, timeOfDayOf, ForecastSummary, TimeOfDay } from './phrase.js';
 
 // つくもAPI（livedoor 天気互換）のレスポンスのうち利用する部分
@@ -254,7 +255,7 @@ export default class extends Module {
 	}): Promise<string | null> {
 		const emojiList = getEmojiListForAI();
 
-		const prompt = config.autoNotePrompt || config.prompt || 'あなたはMisskeyの女の子AI「唯」として振る舞い、天気や気温、空模様に合わせて自然な一言noteを生成してください。280文字以内。';
+		const prompt = buildAutoNotePrompt(config.prompt, config.autoNotePrompt) || 'あなたはMisskeyの女の子AI「唯」として振る舞い、天気や気温、空模様に合わせて自然な一言noteを生成してください。280文字以内。';
 		const now = new Date();
 		const nowStr = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 		const timeOfDayStr = TIME_OF_DAY_LABELS[timeOfDay];
