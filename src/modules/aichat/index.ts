@@ -76,8 +76,11 @@ type AiChatHist = {
 };
 
 const TYPE_GEMINI = 'gemini';
-const geminiModel = config.geminiModel || 'gemini-2.5-flash';
-const GEMINI_API = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
+const geminiModel = config.geminiModel || 'gemini-3.8-flash';
+// 無料枠の Gemini 3.x 系は Google Search grounding 非対応なので、grounding 時だけ 2.5 系を使う
+const geminiGroundingModel = config.geminiGroundingModel || 'gemini-2.5-flash';
+const geminiApiUrl = (model: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+const GEMINI_API = geminiApiUrl(geminiModel);
 const GROUNDING_TARGET = 'ggg';
 
 const RANDOMTALK_DEFAULT_PROBABILITY = 0.02; // デフォルトのrandomTalk確率
@@ -289,9 +292,10 @@ export default class extends Module {
 			geminiOptions.tools = [{ google_search: {} }];
 		}
 
-		this.log(`Calling Gemini API: model=${geminiModel}, grounding=${!!geminiOptions.tools}`);
+		const model = geminiOptions.tools ? geminiGroundingModel : geminiModel;
+		this.log(`Calling Gemini API: model=${model}, grounding=${!!geminiOptions.tools}`);
 		return await callGemini({
-			apiUrl: aiChat.api,
+			apiUrl: geminiOptions.tools ? geminiApiUrl(geminiGroundingModel) : aiChat.api,
 			apiKey: aiChat.key,
 			options: geminiOptions,
 			includeSearchQueries: !isChat,
