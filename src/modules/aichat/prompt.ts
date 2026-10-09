@@ -112,6 +112,16 @@ export function buildBaseSystemInstruction(args: {
 }
 
 /**
+ * 自動投稿用のプロンプトを組み立てる。
+ * autoNotePrompt は投稿内容の指示だけを書けばよいよう、人物設定の prompt の後ろに続ける。
+ */
+export function buildAutoNotePrompt(prompt: string | undefined, autoNotePrompt: string | undefined): string | undefined {
+	if (!prompt) return autoNotePrompt;
+	if (!autoNotePrompt) return prompt;
+	return prompt.endsWith('\n') ? prompt + autoNotePrompt : prompt + '\n' + autoNotePrompt;
+}
+
+/**
  * URL プレビュー情報を system instruction 用の参考データ形式に整形する。
  * リンク先が任意に設定できる文言のため、指示ではなく参考データとして区切って渡す。
  */

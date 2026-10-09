@@ -5,6 +5,7 @@ import {
 	isEmotionalQuestion,
 	buildBaseSystemInstruction,
 	buildUrlPreviewSection,
+	buildAutoNotePrompt,
 	UrlPreview,
 } from './prompt.js';
 
@@ -82,5 +83,21 @@ describe('buildUrlPreviewSection', () => {
 		const text = buildUrlPreviewSection({ ...preview, sensitive: true });
 		expect(text).not.toContain('タイトル: ');
 		expect(text).toContain('センシティブ');
+	});
+});
+
+describe('buildAutoNotePrompt', () => {
+	test('人物設定の prompt の後ろに autoNotePrompt を続ける', () => {
+		expect(buildAutoNotePrompt('人物設定\n', '投稿の指示')).toBe('人物設定\n投稿の指示');
+		expect(buildAutoNotePrompt('人物設定', '投稿の指示')).toBe('人物設定\n投稿の指示');
+	});
+
+	test('片方しかなければそれだけを返す', () => {
+		expect(buildAutoNotePrompt(undefined, '投稿の指示')).toBe('投稿の指示');
+		expect(buildAutoNotePrompt('人物設定', undefined)).toBe('人物設定');
+	});
+
+	test('どちらもなければ undefined', () => {
+		expect(buildAutoNotePrompt(undefined, undefined)).toBeUndefined();
 	});
 });

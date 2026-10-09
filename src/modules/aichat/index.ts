@@ -23,6 +23,7 @@ import {
 	UrlPreview,
 	buildBaseSystemInstruction,
 	buildUrlPreviewSection,
+	buildAutoNotePrompt,
 	extractUrls,
 	isEmotionalQuestion,
 	isYoutubeUrl,
@@ -678,7 +679,7 @@ export default class extends Module {
 		}
 		const aiChat: AiChat = {
 			question: '',
-			prompt: config.autoNotePrompt,
+			prompt: buildAutoNotePrompt(config.prompt, config.autoNotePrompt)!,
 			api: GEMINI_API,
 			key: config.geminiApiKey,
 			fromMention: false,
