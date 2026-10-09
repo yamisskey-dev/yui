@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 export type Config = {
 	host: string;
 	serverName?: string;
@@ -17,6 +19,7 @@ export type Config = {
 	checkEmojisEnabled?: boolean;
 	checkEmojisAtOnce?: boolean;
 	prompt?: string;
+	promptFile?: string;
 	aichatRandomTalkEnabled?: boolean;
 	aichatRandomTalkProbability?: number;
 	aichatRandomTalkIntervalMinutes?: number;
@@ -89,6 +92,15 @@ export function normalizeConfig(raw: Record<string, unknown>): Config {
 	}
 	for (const key of NUMBER_KEYS) {
 		if (conf[key] !== undefined) conf[key] = parseNumberValue(key, conf[key]);
+	}
+
+	// promptFile は prompt より優先する（相対パスは起動時のカレントディレクトリ基準）
+	if (conf.promptFile !== undefined) {
+		try {
+			conf.prompt = readFileSync(String(conf.promptFile), 'utf8');
+		} catch (e) {
+			throw new Error(`config.promptFile を読み込めませんでした（${JSON.stringify(conf.promptFile)}）: ${(e as Error).message}`);
+		}
 	}
 
 	// 必須項目の検証（欠けたまま進むと最初の API 呼び出しまでエラーが顕在化しない）

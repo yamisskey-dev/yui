@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { normalizeConfig } from './normalize-config.js';
 
 const base = {
@@ -60,6 +63,18 @@ describe('normalizeConfig', () => {
 		expect(() => normalizeConfig(noHost)).toThrow(/host/);
 		const { i, ...noToken } = base;
 		expect(() => normalizeConfig(noToken)).toThrow(/config\.i/);
+	});
+
+	test('promptFile を指定するとファイルの内容を prompt に読み込む', () => {
+		const dir = mkdtempSync(join(tmpdir(), 'yui-'));
+		const file = join(dir, 'prompt.md');
+		writeFileSync(file, '# 役割\n唯です\n');
+		const conf = normalizeConfig({ ...base, prompt: '古いプロンプト', promptFile: file });
+		expect(conf.prompt).toBe('# 役割\n唯です\n');
+	});
+
+	test('promptFile が読めなければ投げる', () => {
+		expect(() => normalizeConfig({ ...base, promptFile: join(tmpdir(), 'yui-not-found.md') })).toThrow(/promptFile/);
 	});
 
 	test('wsUrl と apiUrl を host から導出する', () => {

@@ -2,6 +2,7 @@ config.json
 font.ttf
 ai.*
 *.md
+!YUI.md
 *.png
 Dockerfile
 docker-compose.yml
